@@ -2,5 +2,7 @@
 name = "cyno"
 version = "0.1.0"
 authors = ["Chad Laing <chad.laing@canada.ca>"]
+edition = "2018"
 
 [dependencies]
+bio = "0.25.0"
