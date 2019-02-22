@@ -1,4 +1,3 @@
-use std::io;
 use std::io::{Error, ErrorKind};
 use bio::io::fasta;
 use std::path::{Path, PathBuf};
@@ -20,7 +19,7 @@ use std::fs::{self};
 /// let fasta_file = get_fasta_path("/path/to/my.fasta")
 /// assert_eq!(vec!["/path/to/my.fasta"], fasta_file)
 /// ```
-pub fn get_fasta_path(file_or_dir: &Path) -> io::Result<Vec<PathBuf>> {
+pub fn get_fasta_path(file_or_dir: &Path) -> Result<Vec<PathBuf>, Error> {
     if file_or_dir.is_file(){
         Ok(vec![file_or_dir.to_path_buf()])
     }
@@ -36,7 +35,7 @@ pub fn get_fasta_path(file_or_dir: &Path) -> io::Result<Vec<PathBuf>> {
 
 // Path only holds a reference to the path string
 // PathBuf owns the string
-fn recurse_directory(p: &Path) -> io::Result<Vec<PathBuf>>{
+fn recurse_directory(p: &Path) -> Result<Vec<PathBuf>, Error>{
     let mut af: Vec<PathBuf> = Vec::new();
     for entry in fs::read_dir(p)?{
         let e = entry?;
