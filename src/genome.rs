@@ -13,6 +13,8 @@ pub struct ContigKmers<'a>{
 pub fn get_kmers_fastas<'a>(fs: Vec<PathBuf>)
     -> Result<HashMap<String, Vec<ContigKmers<'a>>>, Error> {
     let mut hm = HashMap::new();
+
+    // This is the test data
     let s: &str = "ATCGGCGGCGT";
 
     let kmer1 = ContigKmers {
@@ -21,5 +23,10 @@ pub fn get_kmers_fastas<'a>(fs: Vec<PathBuf>)
     };
 
     hm.insert(String::from("genomeA"), vec![kmer1]);
+    // End of the manual test data
+
+
+
+
     Ok(hm)
 }
