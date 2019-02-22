@@ -1,12 +1,8 @@
-use bio::io::fasta;
+mod files;
+use std::path::Path;
 
 fn main() {
-    let reader = fasta::Reader::from_file("/home/chad/ECI-2866.fasta").unwrap();
-    for record in reader.records(){
-        let r = record.unwrap();
-        println!("{:?}", r);
-        break;
-    }
+    let f = files::get_fasta_path(Path::new("./data/"));
+    println!("{:?}", f);
     println!("Done!");
-
 }
