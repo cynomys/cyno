@@ -1,3 +1,5 @@
+use crate::genome;
+
 use std::io::{Error, ErrorKind};
 use bio::io::fasta;
 use std::path::{Path, PathBuf};
@@ -29,6 +31,9 @@ pub fn get_fasta_path(file_or_dir: &Path) -> Result<Vec<PathBuf>, Error> {
         // Of all the files, we want to keep only the fasta files
         let mut fasta_files: Vec<PathBuf> = Vec::new();
 
+        // To ensure we only get fasta files, we open each file, and attempt
+        // to get the first fasta record of each. If we succeed, we add the file to
+        // the vector of fasta files. If not, we do nothing.
         for f in all_files{
             let reader = fasta::Reader::from_file(&f);
             match reader{
@@ -46,10 +51,17 @@ pub fn get_fasta_path(file_or_dir: &Path) -> Result<Vec<PathBuf>, Error> {
                 Err(..) => {}
             }
         }
-        Ok(fasta_files)
+
+        // Check to see if any fasta files were found. If not, return an error
+        if fasta_files.is_empty(){
+            Err(Error::new(ErrorKind::NotFound, "No valid fasta files found"))
+        }
+        else{
+            Ok(fasta_files)
+        }
     }
     else{
-        Err(Error::new(ErrorKind::NotFound, "missing file"))
+        Err(Error::new(ErrorKind::NotFound, "No valid files found"))
     }
 }
 
@@ -70,13 +82,4 @@ fn recurse_directory(p: &Path) -> Result<Vec<PathBuf>, Error>{
         }
     }
     Ok(af)
-}
-
-pub fn get_kmers_file() {
-    let reader = fasta::Reader::from_file("./data/Salmonella.fasta").unwrap();
-
-    for record in reader.records() {
-        let r = record.unwrap();
-        println!("{:?}", String::from_utf8_lossy(r.seq()));
-    }
 }

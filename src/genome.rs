@@ -1,0 +1,25 @@
+use bio::io::fasta;
+
+use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
+
+#[derive(Debug)]
+pub struct ContigKmers<'a>{
+    name: String,
+    kmers: Vec<&'a str>
+}
+
+pub fn get_kmers_fastas<'a>(fs: Vec<PathBuf>)
+    -> Result<HashMap<String, Vec<ContigKmers<'a>>>, Error> {
+    let mut hm = HashMap::new();
+    let s: &str = "ATCGGCGGCGT";
+
+    let kmer1 = ContigKmers {
+        name: String::from("genomeA"),
+        kmers: vec![&s[0..3]]
+    };
+
+    hm.insert(String::from("genomeA"), vec![kmer1]);
+    Ok(hm)
+}
