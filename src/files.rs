@@ -25,7 +25,28 @@ pub fn get_fasta_path(file_or_dir: &Path) -> Result<Vec<PathBuf>, Error> {
     }
     else if file_or_dir.is_dir(){
         let all_files= recurse_directory(file_or_dir)?;
-        Ok(all_files)
+
+        // Of all the files, we want to keep only the fasta files
+        let mut fasta_files: Vec<PathBuf> = Vec::new();
+
+        for f in all_files{
+            let reader = fasta::Reader::from_file(&f);
+            match reader{
+                Ok(gf) => {
+                    for record in gf.records(){
+                        match record{
+                            Ok(..) => {
+                                fasta_files.push(f)
+                            },
+                            Err(..) => {}
+                        }
+                        break;
+                    }
+                },
+                Err(..) => {}
+            }
+        }
+        Ok(fasta_files)
     }
     else{
         Err(Error::new(ErrorKind::NotFound, "missing file"))
