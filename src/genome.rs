@@ -6,6 +6,11 @@ use std::path::PathBuf;
 use std::str;
 use std::str::from_utf8;
 
+
+// Data for storing the contig name and sequence
+// The get_kmers_contig() function is what is used when creating
+// the kmers for insertion into the graph. The data structure just stores
+// a copy of the String until it is needed for generating the kmers.
 #[derive(Debug)]
 pub struct ContigKmers{
     name: String,
@@ -25,26 +30,13 @@ impl ContigKmers{
     }
 }
 
-pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
+// Create a HashMap to be returned, with every genome name being based on the
+// file of the genome as they key, and a Vec<ContigKmers> as the value, which holds the
+// sequence for every contig and the contig name. Method for generating kmers as needed
+// for each contig is included.
+pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>, k_size: usize)
     -> Result<HashMap<String, Vec<ContigKmers>>, Error> {
     let mut hm = HashMap::new();
-
-    // This is the test data
-    // This works because the array has a fixed size that is known before compile time
-    // When we are getting data from a file, we cannot know the size before compile time
-    // and so have to take a different approach for the real data
-    let bs = b"AAATTTCCTTTT";
-    let bs_str = str::from_utf8(bs).unwrap();
-
-    let kmer1 = ContigKmers {
-        name: String::from("genomeA"),
-        contig_seq: bs_str.to_owned(),
-        kmer_length: 11
-    };
-
-    hm.insert(String::from("genomeA"), vec![kmer1]);
-    // End of the manual test data
-
 
     for ffile in fs{
         let reader = fasta::Reader::from_file(&ffile)?;
@@ -56,7 +48,7 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
             let next_contig = ContigKmers{
                 name: r.id().to_owned(),
                 contig_seq: rseq.to_owned(),
-                kmer_length: 11
+                kmer_length: k_size
             };
 
             hm.insert(ffile.to_str().unwrap().to_owned(), vec![next_contig]);
