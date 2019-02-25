@@ -42,8 +42,7 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>, k_size: usize)
         let reader = fasta::Reader::from_file(&ffile)?;
         for record in reader.records(){
             let r = record.unwrap();
-            let rr = r.seq();
-            let rseq = str::from_utf8(rr).unwrap();
+            let rseq = str::from_utf8(r.seq()).unwrap();
 
             let next_contig = ContigKmers{
                 name: r.id().to_owned(),
