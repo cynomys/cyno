@@ -9,17 +9,21 @@ use std::str::from_utf8;
 #[derive(Debug)]
 pub struct ContigKmers{
     name: String,
-    contig_seq: String
+    contig_seq: String,
+    kmer_length: usize
 }
 
 impl ContigKmers{
     fn get_kmers_contig(&self) -> Vec<&str>{
+        let mut the_kmers: Vec<&str> = Vec::new();
         let the_seq = self.contig_seq.as_str();
-        vec![&the_seq[0..3]]
+
+        for i in 0 .. (self.contig_seq.len() - self.kmer_length - 1){
+            the_kmers.push(&the_seq[i .. i + self.kmer_length - 1]);
+        }
+       the_kmers
     }
 }
-
-
 
 pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
     -> Result<HashMap<String, Vec<ContigKmers>>, Error> {
@@ -34,7 +38,8 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
 
     let kmer1 = ContigKmers {
         name: String::from("genomeA"),
-        contig_seq: bs_str.to_owned()
+        contig_seq: bs_str.to_owned(),
+        kmer_length: 11
     };
 
     hm.insert(String::from("genomeA"), vec![kmer1]);
@@ -50,7 +55,8 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
 
             let next_contig = ContigKmers{
                 name: r.id().to_owned(),
-                contig_seq: rseq.to_owned()
+                contig_seq: rseq.to_owned(),
+                kmer_length: 11
             };
 
             hm.insert(ffile.to_str().unwrap().to_owned(), vec![next_contig]);
