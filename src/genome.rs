@@ -23,7 +23,7 @@ impl ContigKmers{
         let mut the_kmers: Vec<& str> = Vec::new();
         let the_seq = self.contig_seq.as_str();
 
-        for i in 0 .. (self.contig_seq.len() - self.kmer_length - 1){
+        for i in 0 .. (self.contig_seq.len() - self.kmer_length - 2){
             the_kmers.push(&the_seq[i .. i + self.kmer_length - 1]);
         }
        the_kmers
