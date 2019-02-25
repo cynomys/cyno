@@ -4,45 +4,48 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::str;
+use std::str::from_utf8;
 
 #[derive(Debug)]
-pub struct ContigKmers<'a>{
+pub struct ContigKmers{
     name: String,
-    kmers: Vec<&'a str>
+    contig_seq: String
 }
 
 pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
-    -> Result<HashMap<String, Vec<ContigKmers<'a>>>, Error> {
+    -> Result<HashMap<String, Vec<ContigKmers>>, Error> {
     let mut hm = HashMap::new();
 
     // This is the test data
+    // This works because the array has a fixed size that is known before compile time
+    // When we are getting data from a file, we cannot know the size before compile time
+    // and so have to take a different approach for the real data
     let bs = b"AAATTTCCTTTT";
     let bs_str = str::from_utf8(bs).unwrap();
 
     let kmer1 = ContigKmers {
         name: String::from("genomeA"),
-//        kmers: vec![]
-        kmers: vec![&bs_str[0..3], &bs_str[4..6]]
+        contig_seq: bs_str.to_owned()
     };
 
     hm.insert(String::from("genomeA"), vec![kmer1]);
     // End of the manual test data
 
+
     for ffile in fs{
         let reader = fasta::Reader::from_file(&ffile)?;
         for record in reader.records(){
-            let r = record?;
+            let r = record.unwrap();
+            let rr = r.seq();
+            let rseq = str::from_utf8(rr).unwrap();
 
-//            let next_contig = ContigKmers{
-//                name: r.id().to_owned()
-//                // TODO: The bio module has DNA as u8, not str
-//                // kmers: vec![&r.seq().to_vec()[0..3]]
-//            };
-//
-//            hm.insert(ffile.to_string(), vec![next_contig])
+            let next_contig = ContigKmers{
+                name: r.id().to_owned(),
+                contig_seq: rseq.to_owned()
+            };
+
+            hm.insert(ffile.to_str().unwrap().to_owned(), vec![next_contig]);
         }
     }
-
-
     Ok(hm)
 }
