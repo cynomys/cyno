@@ -10,7 +10,12 @@ fn main() -> Result<(), std::io::Error> {
 
 //    let mut all_kmers: HashMap<String, Vec<genome::ContigKmers>> = HashMap::new();
     let all_kmers = genome::get_kmers_fastas(&fs)?;
-    println!("{:?}", all_kmers);
+
+    for (k, v) in &all_kmers{
+        println!("{:#?}: {:#?}", k, v);
+        let kx = v[0].get_kmers_contig();
+        println!("{:#?}", kx);
+    }
 
     println!("Done");
     Ok(())

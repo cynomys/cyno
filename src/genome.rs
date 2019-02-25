@@ -14,7 +14,7 @@ pub struct ContigKmers{
 }
 
 impl ContigKmers{
-    fn get_kmers_contig(&self) -> Vec<&str>{
+    pub fn get_kmers_contig(&self) -> Vec<&str>{
         let mut the_kmers: Vec<& str> = Vec::new();
         let the_seq = self.contig_seq.as_str();
 
