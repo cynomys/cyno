@@ -12,6 +12,15 @@ pub struct ContigKmers{
     contig_seq: String
 }
 
+impl ContigKmers{
+    fn get_kmers_contig(&self) -> Vec<&str>{
+        let the_seq = self.contig_seq.as_str();
+        vec![&the_seq[0..3]]
+    }
+}
+
+
+
 pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>)
     -> Result<HashMap<String, Vec<ContigKmers>>, Error> {
     let mut hm = HashMap::new();
