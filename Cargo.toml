@@ -6,3 +6,5 @@ edition = "2018"
 
 [dependencies]
 bio = "0.25.0"
+grpcio = { version = "0.4", default-features = false, features = ["protobuf-codec"] }
+dgraph = "0.1.1"
