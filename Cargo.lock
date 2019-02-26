@@ -175,7 +175,6 @@ version = "0.1.0"
 dependencies = [
  "bio 0.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dgraph 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "grpcio 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

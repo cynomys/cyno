@@ -1,14 +1,12 @@
 use crate::genome;
+use dgraph;
 
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 
 
-pub fn add_genome_dgraph(hm: HashMap<String, Vec<genome::ContigKmers>>) -> Result<(), Error>{
-
-    Ok(())
+pub fn create_dgraph_connection(addr: &str) -> Result<dgraph::Dgraph, Error>{
+    let cx = dgraph::make_dgraph!(dgraph::new_dgraph_client(addr));
+    Ok(cx)
 }
 
-pub fn create_dgraph_connection(dg_address: &str) -> Result<(), Error> {
-   Ok(())
-}
