@@ -14,8 +14,12 @@ fn main() -> Result<(), std::io::Error> {
     let all_kmers = genome::get_kmers_fastas(&fs, 11)?;
 
     // dgraph init
-    let dg_connection = dg::create_dgraph_connection("10.139.14.202:9080");
+    let dg_client = dg::create_dgraph_connection("10.139.14.202:9080")?;
+    dg::drop_all(&dg_client)?;
 
+    let schema_payload = dg::set_schema(&dg_client);
+
+    println!("Schema Payload: {:?}", schema_payload);
     println!("Done");
     Ok(())
 }
