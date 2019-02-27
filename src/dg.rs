@@ -53,7 +53,7 @@ pub fn add_genomes_dgraph(
         // Vec of all data to insert
         // Giving an over-allocation of capacity prevent re-allocation later
         //
-        let mut all_quads = String::with_capacity(1500000);
+        let mut all_quads = String::with_capacity(15000000);
 
         // bulk_quads.append('_:{0} <kmer> "{0}" .{1}'.format(kmer, "\n"))
         // let test_quads = String::from("_:kTTTT <kmer> \"TTTT\" .\n");
@@ -70,7 +70,7 @@ pub fn add_genomes_dgraph(
             println!("There are {} kmers", all_kmers.len());
 
 //            for i in 0..(all_kmers.len() - 2) {
-            for i in 0..1000{
+            for i in 0..20000{
                 let kmer1 = format!(
                     "_:k{} <kmer> \"{}\" .\n",
                     all_kmers[i],
@@ -92,30 +92,40 @@ pub fn add_genomes_dgraph(
                     all_kmers[i+1]
                 );
                 all_quads.push_str(&kmer_edge);
+
+                // Every 1000 kmers, add to dgraph
+                if (i > 0) && (i % 2000 == 0){
+                    add_batch_dgraph(client,&all_quads)?;
+                    // Empty the string, but leave its capacity the same
+                    all_quads.clear();
+                }
             }
-            break;
         }
-        // Insert one genome at a time
-        let mut txn = client.new_txn();
-        let mut mutation = Mutation::new();
-
-        // Manual error propagation for now
-        // The data is expected to be in u8 form for submission
-        mutation.set_set_nquads(all_quads.into_bytes());
-
-        let m = txn.mutate(mutation);
-        match m {
-            Ok(m) => m,
-            Err(..) => return Err(Error::new(ErrorKind::Other, "Failed to insert NQuads")),
-        };
-
-        // Commit
-        let cc = txn.commit();
-        match cc {
-            Ok(..) => {},
-            Err(..) => return Err(Error::new(ErrorKind::Other, "Transaction failed")),
-        };
     }
 
     Ok(())
+}
+
+// Batch add the kmers,
+fn add_batch_dgraph(client: &Dgraph, nq: &str)-> Result<(), Error>{
+    println!(".");
+    // Insert one batch at a time
+    let mut txn = client.new_txn();
+    let mut mutation = Mutation::new();
+    // Manual error propagation for now
+    // The data is expected to be in u8 form for submission
+    mutation.set_set_nquads(nq.as_bytes().to_owned());
+
+    let m = txn.mutate(mutation);
+    match m {
+        Ok(m) => m,
+        Err(..) => return Err(Error::new(ErrorKind::Other, "Failed to insert NQuads")),
+    };
+
+    // Commit
+    let cc = txn.commit();
+    match cc {
+        Ok(..) => Ok(()),
+        Err(..) => return Err(Error::new(ErrorKind::Other, "Transaction failed")),
+    }
 }
