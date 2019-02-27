@@ -18,6 +18,8 @@ fn main() -> Result<(), std::io::Error> {
     dg::drop_all(&dg_client)?;
 
     let schema_payload = dg::set_schema(&dg_client);
+    dg::add_genomes_dgraph(&dg_client, &all_kmers)?;
+
 
     println!("Schema Payload: {:?}", schema_payload);
     println!("Done");
