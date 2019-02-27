@@ -70,7 +70,7 @@ pub fn add_genomes_dgraph(
             println!("There are {} kmers", all_kmers.len());
 
 //            for i in 0..(all_kmers.len() - 2) {
-            for i in 0..20000{
+            for i in 0..50000{
                 let kmer1 = format!(
                     "_:k{} <kmer> \"{}\" .\n",
                     all_kmers[i],
@@ -94,11 +94,16 @@ pub fn add_genomes_dgraph(
                 all_quads.push_str(&kmer_edge);
 
                 // Every 1000 kmers, add to dgraph
-                if (i > 0) && (i % 2000 == 0){
+                if (i > 0) && (i % 30000 == 0){
                     add_batch_dgraph(client,&all_quads)?;
                     // Empty the string, but leave its capacity the same
                     all_quads.clear();
                 }
+            }
+
+            // Need to add any remaining quads
+            if !all_quads.is_empty(){
+                add_batch_dgraph(client, &all_quads);
             }
         }
     }
