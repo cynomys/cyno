@@ -6,6 +6,9 @@ use std::path::PathBuf;
 use std::str;
 use std::str::from_utf8;
 
+use crypto::sha2::Sha256;
+use crypto::digest::Digest;
+
 
 // Data for storing the contig name and sequence
 // The get_kmers_contig() function is what is used when creating
@@ -50,7 +53,12 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>, k_size: usize)
                 kmer_length: k_size
             };
 
-            hm.insert(ffile.to_str().unwrap().to_owned(), vec![next_contig]);
+            // Get genome name as Sha256 hash of file
+            let mut hasher = Sha256::new();
+            hasher.input_str(ffile.to_str().unwrap());
+            let genome_name = hasher.result_str();
+
+            hm.insert(genome_name.to_owned(), vec![next_contig]);
         }
     }
     Ok(hm)

@@ -4,6 +4,7 @@ use dgraph::{make_dgraph, Dgraph, Mutation, Operation, Payload};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 
+
 // New DB
 pub fn create_dgraph_connection(addr: &str) -> Result<dgraph::Dgraph, Error> {
     let cx = make_dgraph!(dgraph::new_dgraph_client(addr));
@@ -30,9 +31,7 @@ pub fn drop_all(client: &Dgraph) -> Result<Payload, Error> {
 // Initial schema
 pub fn set_schema(client: &Dgraph) -> Result<Payload, Error> {
     let op_schema = Operation {
-        schema: r#"kmer: string @index(exact, term) .
-                   genomeA: uid .
-                "#.to_string(),
+        schema: "kmer: string @index(exact, term) .".to_string(),
         ..Default::default()
     };
 
@@ -49,27 +48,50 @@ pub fn add_genomes_dgraph(
     client: &Dgraph,
     hm: &HashMap<String, Vec<genome::ContigKmers>>,
 ) -> Result<(), Error> {
-       // Iterate through all genomes
+    // Iterate through all genomes
     for (k, v) in hm {
         // Vec of all data to insert
-        let mut all_quads = String::new();
+        // Giving an over-allocation of capacity prevent re-allocation later
+        //
+        let mut all_quads = String::with_capacity(1500000);
 
         // bulk_quads.append('_:{0} <kmer> "{0}" .{1}'.format(kmer, "\n"))
-        let test_quads = String::from("_:kTTTT <kmer> \"TTTT\" .\n");
+        // let test_quads = String::from("_:kTTTT <kmer> \"TTTT\" .\n");
 
         // Iterate through all contigs
         for contig in v {
             // Iterate through all kmers in the contig
             let all_kmers = contig.get_kmers_contig();
-            for i in 0..(all_kmers.len() - 2) {
-                let next_kmers = format!(
-                    "{} {} {} .{}",
+
+            // For each pair of kmers, we need to do the following:
+            // 1. Add kmer1
+            // 2. Add kmer2
+            // 3. Add an edge (genome name from schema) between them
+            println!("There are {} kmers", all_kmers.len());
+
+//            for i in 0..(all_kmers.len() - 2) {
+            for i in 0..1000{
+                let kmer1 = format!(
+                    "_:k{} <kmer> \"{}\" .\n",
                     all_kmers[i],
-                    "genomeA",
-                    all_kmers[i + 1],
-                    "\n",
+                    all_kmers[i]
                 );
-                all_quads.push_str(&next_kmers);
+                all_quads.push_str(&kmer1);
+
+                let kmer2 = format!(
+                    "_:k{} <kmer> \"{}\" .\n",
+                    all_kmers[i+1],
+                    all_kmers[i+1]
+                );
+                all_quads.push_str(&kmer2);
+
+                let kmer_edge = format!(
+                    "_:k{} <{}> _:k{} .\n",
+                    all_kmers[i],
+                    k,
+                    all_kmers[i+1]
+                );
+                all_quads.push_str(&kmer_edge);
             }
             break;
         }
@@ -79,9 +101,8 @@ pub fn add_genomes_dgraph(
 
         // Manual error propagation for now
         // The data is expected to be in u8 form for submission
-        mutation.set_set_nquads(test_quads.into_bytes());
+        mutation.set_set_nquads(all_quads.into_bytes());
 
-        println!("Mutation: {:?}", mutation);
         let m = txn.mutate(mutation);
         match m {
             Ok(m) => m,

@@ -2,8 +2,6 @@ mod files;
 mod genome;
 mod dg;
 
-use dgraph;
-
 use std::path::Path;
 use std::collections::HashMap;
 

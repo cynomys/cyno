@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 bio = "0.25.0"
 dgraph = "0.1.2"
+rust-crypto = "^0.2"
