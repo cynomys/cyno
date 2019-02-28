@@ -91,8 +91,11 @@ fn recurse_directory(p: &Path) -> Result<Vec<PathBuf>, Error>{
 pub fn get_blake2_file(f: &PathBuf) -> Result<String, Error>{
     let mut file_contents = fs::File::open(f)?;
     let mut hasher = Blake2b::new();
+
+    //cargo cult from the docs
     io::copy(&mut file_contents, &mut hasher)?;
     let hash = hasher.result();
+
     // Convert the bytes into a string of lowercase hex with the :x trait
     Ok(format!("{:x}", hash))
 }
