@@ -3,11 +3,9 @@ use crate::files;
 use bio::io::fasta;
 
 use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
+use std::io::{Error};
 use std::path::PathBuf;
 use std::str;
-use std::str::from_utf8;
-
 
 // Data for storing the contig name and sequence
 // The get_kmers_contig() function is what is used when creating

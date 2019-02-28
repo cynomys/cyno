@@ -1,5 +1,3 @@
-use crate::genome;
-
 use std::io::{Error, ErrorKind};
 use bio::io::fasta;
 use std::path::{Path, PathBuf};

@@ -23,7 +23,7 @@ pub fn drop_all(client: &Dgraph) -> Result<Payload, Error> {
         Ok(r) => Ok(r),
         Err(r) => Err(Error::new(
             ErrorKind::Other,
-            "Could not drop all data from graph",
+            format!("Could not drop all data from graph. {}", r)
         )),
     }
 }
