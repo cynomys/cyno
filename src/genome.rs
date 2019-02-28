@@ -1,3 +1,5 @@
+use crate::files;
+
 use bio::io::fasta;
 
 use std::collections::HashMap;
@@ -5,9 +7,6 @@ use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::str;
 use std::str::from_utf8;
-
-use crypto::sha2::Sha256;
-use crypto::digest::Digest;
 
 
 // Data for storing the contig name and sequence
@@ -53,10 +52,8 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>, k_size: usize)
                 kmer_length: k_size
             };
 
-            // Get genome name as Sha256 hash of file
-            let mut hasher = Sha256::new();
-            hasher.input_str(ffile.to_str().unwrap());
-            let genome_name = hasher.result_str();
+            // Get genome name as Blake2 hash of file
+            let genome_name = files::get_blake2_file(ffile)?;
 
             hm.insert(genome_name.to_owned(), vec![next_contig]);
         }

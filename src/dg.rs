@@ -103,7 +103,7 @@ pub fn add_genomes_dgraph(
 
             // Need to add any remaining quads
             if !all_quads.is_empty(){
-                add_batch_dgraph(client, &all_quads);
+                add_batch_dgraph(client, &all_quads)?;
             }
         }
     }

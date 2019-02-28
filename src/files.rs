@@ -3,7 +3,9 @@ use crate::genome;
 use std::io::{Error, ErrorKind};
 use bio::io::fasta;
 use std::path::{Path, PathBuf};
-use std::fs::{self};
+use std::{fs, io};
+use blake2::{Digest, Blake2b};
+
 
 /// Returns a vector of all the fasta files in a given path (file or directory)
 ///
@@ -82,4 +84,15 @@ fn recurse_directory(p: &Path) -> Result<Vec<PathBuf>, Error>{
         }
     }
     Ok(af)
+}
+
+
+// Compute the hash of the file contents
+pub fn get_blake2_file(f: &PathBuf) -> Result<String, Error>{
+    let mut file_contents = fs::File::open(f)?;
+    let mut hasher = Blake2b::new();
+    io::copy(&mut file_contents, &mut hasher)?;
+    let hash = hasher.result();
+    // Convert the bytes into a string of lowercase hex with the :x trait
+    Ok(format!("{:x}", hash))
 }
