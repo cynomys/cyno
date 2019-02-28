@@ -66,8 +66,9 @@ pub fn add_genomes_dgraph(
 
             // We now want to collect chunks of the windowed kmers in chunk_size
             // For example, if chunk_size is 1000, this will give us a Vec of 1000
-            // kmers as &[u8] that need to be converted into Strings
+            // kmers as &[u8] that need to be converted into &str
             for kmer_chunks in all_kmers.collect::<Vec<_>>().chunks(chunk_size) {
+                // Run the from_utf8.unwrap() function on every element of the kmer_chunks Vec
                 let dkmers = kmer_chunks.into_iter().map(|x| from_utf8(x).unwrap());
             }
 
