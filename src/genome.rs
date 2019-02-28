@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::io::{Error};
 use std::path::PathBuf;
 use std::str;
+use std::slice::Windows;
 
 // Data for storing the contig name and sequence
 // The get_kmers_contig() function is what is used when creating
@@ -13,20 +14,23 @@ use std::str;
 // a copy of the String until it is needed for generating the kmers.
 #[derive(Debug)]
 pub struct ContigKmers{
-    name: String,
-    contig_seq: String,
-    kmer_length: usize
+    pub name: String,
+    pub contig_seq: String,
+    pub kmer_length: usize
 }
 
 impl ContigKmers{
-    pub fn get_kmers_contig(&self) -> Vec<&str>{
-        let mut the_kmers: Vec<& str> = Vec::new();
-        let the_seq = self.contig_seq.as_str();
+    pub fn get_kmers_contig(&self) -> Windows<u8>{
+//        let mut the_kmers: Vec<& str> = Vec::new();
+//        let the_seq = self.contig_seq.as_str();
+//
+//        for i in 0 .. (self.contig_seq.len() - self.kmer_length - 2){
+//            the_kmers.push(&the_seq[i .. i + self.kmer_length - 1]);
+//        }
+//       the_kmers
 
-        for i in 0 .. (self.contig_seq.len() - self.kmer_length - 2){
-            the_kmers.push(&the_seq[i .. i + self.kmer_length - 1]);
-        }
-       the_kmers
+        let contig_as_bytes = self.contig_seq.as_bytes();
+        contig_as_bytes.windows(self.kmer_length)
     }
 }
 
