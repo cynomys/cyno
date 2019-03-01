@@ -4,6 +4,20 @@ use dgraph::{make_dgraph, Dgraph, Mutation, Operation, Payload};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::str::from_utf8;
+use serde::{Serialize, Deserialize};
+use serde_json::{Value};
+
+// Data structures for dgraph
+#[derive(Deserialize, Debug)]
+struct Node{
+    uid: String,
+    kmer: String
+}
+
+#[derive(Deserialize, Debug)]
+struct FindAll{
+    find_all: Vec<Node>
+}
 
 // New DB
 pub fn create_dgraph_connection(addr: &str) -> Result<dgraph::Dgraph, Error> {
@@ -81,7 +95,7 @@ pub fn add_genomes_dgraph(
                 }
 
                 // Updates the kmer_uid HashMap with returned query values
-                batch_query_dgraph(client, &kmer_uid, &dkmers)?;
+                query_batch_dgraph(client, &kmer_uid, &dkmers)?;
             }
 
             //            // Every 1000 kmers, add to dgraph
@@ -161,7 +175,7 @@ fn add_batch_dgraph(client: &Dgraph, nq: &str) -> Result<(), Error> {
 
 
 // Query our group of strains, updating the one true HashMap
-fn batch_query_dgraph(client: &Dgraph, hmc: &HashMap<String, String>, kmers: &str)->Result<(), Error>{
+fn query_batch_dgraph(client: &Dgraph, hmc: &HashMap<String, String>, kmers: &str) ->Result<(), Error>{
     let query = r#"query find_all($klist: string){
             find_all(func: anyofterms(kmer, $klist))
             {
@@ -178,6 +192,8 @@ fn batch_query_dgraph(client: &Dgraph, hmc: &HashMap<String, String>, kmers: &st
         Ok(resp) =>  resp,
         Err(resp) => return Err(Error::new(ErrorKind::Other, format!("Query failed {}", resp)))
     };
+    let r_json: FindAll = serde_json::from_slice(&r.json)?;
+    println!("{:?}", r_json.find_all);
 
     Ok(())
 }
