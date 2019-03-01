@@ -101,40 +101,6 @@ pub fn add_genomes_dgraph(
 
             }
 
-
-            //
-            ////            for i in 0..(all_kmers.len() - 2) {
-            //            for i in 0..50000{
-            //                let kmer1 = format!(
-            //                    "_:k{} <kmer> \"{}\" .\n",
-            //                    all_kmers[i],
-            //                    all_kmers[i]
-            //                );
-            //                all_quads.push_str(&kmer1);
-            //
-            //                let kmer2 = format!(
-            //                    "_:k{} <kmer> \"{}\" .\n",
-            //                    all_kmers[i+1],
-            //                    all_kmers[i+1]
-            //                );
-            //                all_quads.push_str(&kmer2);
-            //
-            //                let kmer_edge = format!(
-            //                    "_:k{} <{}> _:k{} .\n",
-            //                    all_kmers[i],
-            //                    k,
-            //                    all_kmers[i+1]
-            //                );
-            //                all_quads.push_str(&kmer_edge);
-            //
-            //
-            //            }
-            //
-            //            // Need to add any remaining quads
-            //            if !all_quads.is_empty(){
-            //                add_batch_dgraph(client, &all_quads)?;
-            //            }
-            break;
         }
     }
 
