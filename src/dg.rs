@@ -69,7 +69,19 @@ pub fn add_genomes_dgraph(
             // kmers as &[u8] that need to be converted into &str
             for kmer_chunks in all_kmers.collect::<Vec<_>>().chunks(chunk_size) {
                 // Run the from_utf8.unwrap() function on every element of the kmer_chunks Vec
-                let dkmers = kmer_chunks.into_iter().map(|x| from_utf8(x).unwrap());
+                // Create a query string of space-separated kmers
+                let mut dkmers = String::new();
+                for kmer in kmer_chunks{
+                    let dk = from_utf8(kmer);
+                    match dk{
+                        Ok(dk) => dkmers.push_str(dk),
+                        Err(dk) => return Err(Error::new(ErrorKind::Other, format!("Could not convert utf8 to string {}", dk)))
+                    }
+                    dkmers.push_str(" ");
+                }
+
+                // Updates the kmer_uid HashMap with returned query values
+                batch_query_dgraph(client, &kmer_uid, &dkmers)?;
             }
 
             //            // Every 1000 kmers, add to dgraph
@@ -116,6 +128,7 @@ pub fn add_genomes_dgraph(
             //            if !all_quads.is_empty(){
             //                add_batch_dgraph(client, &all_quads)?;
             //            }
+            break;
         }
     }
 
@@ -146,7 +159,25 @@ fn add_batch_dgraph(client: &Dgraph, nq: &str) -> Result<(), Error> {
     }
 }
 
-//// Query our group of strains, updating the one true HashMap
-//fn batch_query_dgraph(hm: HashMap, kmers: Vec<&str>){
-//
-//}
+// Query our group of strains, updating the one true HashMap
+// TODO: Fix type signature of
+fn batch_query_dgraph(client: &Dgraph, hmc: &HashMap<String, String>, kmers: &str)->Result<(), Error>{
+    let query = r#"query find_all($klist: string){
+            find_all(func: anyofterms(kmer, $klist))
+            {
+                uid
+                kmer
+            }
+    }"#.to_string();
+
+    let mut variables = HashMap::new();
+    variables.insert("$klist".to_string(), kmers.to_string());
+
+    let resp = client.new_readonly_txn().query_with_vars(query, variables);
+    match resp{
+        Ok(resp) =>  println!("{:?}", resp),
+        Err(resp) => return Err(Error::new(ErrorKind::Other, format!("Query failed {}", resp)))
+    }
+
+    Ok(())
+}
