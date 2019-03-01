@@ -159,8 +159,8 @@ fn add_batch_dgraph(client: &Dgraph, nq: &str) -> Result<(), Error> {
     }
 }
 
+
 // Query our group of strains, updating the one true HashMap
-// TODO: Fix type signature of
 fn batch_query_dgraph(client: &Dgraph, hmc: &HashMap<String, String>, kmers: &str)->Result<(), Error>{
     let query = r#"query find_all($klist: string){
             find_all(func: anyofterms(kmer, $klist))
@@ -174,10 +174,10 @@ fn batch_query_dgraph(client: &Dgraph, hmc: &HashMap<String, String>, kmers: &st
     variables.insert("$klist".to_string(), kmers.to_string());
 
     let resp = client.new_readonly_txn().query_with_vars(query, variables);
-    match resp{
-        Ok(resp) =>  println!("{:?}", resp),
+    let r = match resp{
+        Ok(resp) =>  resp,
         Err(resp) => return Err(Error::new(ErrorKind::Other, format!("Query failed {}", resp)))
-    }
+    };
 
     Ok(())
 }
