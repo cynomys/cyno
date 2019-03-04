@@ -5,7 +5,7 @@ mod dg;
 use std::path::Path;
 
 fn main() -> Result<(), std::io::Error> {
-    let fs = files::get_fasta_path(Path::new("./data/"))?;
+    let fs = files::get_fasta_path(Path::new("./data/E_coli.fasta"))?;
     println!("{:?}", fs);
 
     let all_kmers = genome::get_kmers_fastas(&fs, 11)?;
@@ -15,7 +15,7 @@ fn main() -> Result<(), std::io::Error> {
     dg::drop_all(&dg_client)?;
 
     dg::set_schema(&dg_client);
-    dg::add_genomes_dgraph(&dg_client, &all_kmers, 2000)?;
+    dg::add_genomes_dgraph(&dg_client, &all_kmers, 5000000)?;
 
     println!("Done");
     Ok(())
