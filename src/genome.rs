@@ -21,14 +21,6 @@ pub struct ContigKmers{
 
 impl ContigKmers{
     pub fn get_kmers_contig(&self) -> Windows<u8>{
-//        let mut the_kmers: Vec<& str> = Vec::new();
-//        let the_seq = self.contig_seq.as_str();
-//
-//        for i in 0 .. (self.contig_seq.len() - self.kmer_length - 2){
-//            the_kmers.push(&the_seq[i .. i + self.kmer_length - 1]);
-//        }
-//       the_kmers
-
         let contig_as_bytes = self.contig_seq.as_bytes();
         contig_as_bytes.windows(self.kmer_length)
     }
@@ -60,7 +52,7 @@ pub fn get_parsed_genomes<'a>(fs: &Vec<PathBuf>, k_size: usize)
             };
             contig_vec.push(next_contig);
         }
-        hm.insert(genome_name.to_owned(), contig_vec);
+        hm.insert(genome_name, contig_vec);
     }
     Ok(hm)
 }
