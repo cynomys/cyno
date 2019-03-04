@@ -38,12 +38,17 @@ impl ContigKmers{
 // file of the genome as they key, and a Vec<ContigKmers> as the value, which holds the
 // sequence for every contig and the contig name. Method for generating kmers as needed
 // for each contig is included.
-pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>, k_size: usize)
-    -> Result<HashMap<String, Vec<ContigKmers>>, Error> {
+pub fn get_parsed_genomes<'a>(fs: &Vec<PathBuf>, k_size: usize)
+                              -> Result<HashMap<String, Vec<ContigKmers>>, Error> {
     let mut hm = HashMap::new();
 
     for ffile in fs{
         let reader = fasta::Reader::from_file(&ffile)?;
+
+        // Get genome name as Blake2 hash of file
+        let genome_name = files::get_blake2_file(ffile)?;
+        let mut contig_vec = Vec::new();
+
         for record in reader.records(){
             let r = record.unwrap();
             let rseq = str::from_utf8(r.seq()).unwrap();
@@ -53,12 +58,9 @@ pub fn get_kmers_fastas<'a>(fs: &Vec<PathBuf>, k_size: usize)
                 contig_seq: rseq.to_owned(),
                 kmer_length: k_size
             };
-
-            // Get genome name as Blake2 hash of file
-            let genome_name = files::get_blake2_file(ffile)?;
-
-            hm.insert(genome_name.to_owned(), vec![next_contig]);
+            contig_vec.push(next_contig);
         }
+        hm.insert(genome_name.to_owned(), contig_vec);
     }
     Ok(hm)
 }

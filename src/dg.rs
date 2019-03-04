@@ -69,10 +69,12 @@ pub fn add_genomes_dgraph(
 
     for (k, v) in hm {
         // Iterate through all contigs
+        println!("Adding genome {}", k);
         for contig in v {
             // Iterate through all kmers in the contig
             // The method returns a Window iterator of the kmer size
             // The windows are u8, so need to be converted into string
+            println!("Adding contig {}", contig.name);
             let all_kmers = contig.get_kmers_contig();
 
             // We now want to collect chunks of the windowed kmers in chunk_size
@@ -97,7 +99,6 @@ pub fn add_genomes_dgraph(
                 // Requires a string of newline separated quads
                 let new_quads = create_batch_quads(&dkmers,&mut kmer_uid, &k);
                 add_batch_dgraph(client, &new_quads.to_owned())?;
-                println!(".");
             }
             break;
         }

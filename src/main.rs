@@ -8,7 +8,7 @@ fn main() -> Result<(), std::io::Error> {
     let fs = files::get_fasta_path(Path::new("./data/E_coli.fasta"))?;
     println!("{:?}", fs);
 
-    let all_kmers = genome::get_kmers_fastas(&fs, 11)?;
+    let all_kmers = genome::get_parsed_genomes(&fs, 11)?;
 
     // dgraph init
     let dg_client = dg::create_dgraph_connection("10.139.14.202:9080")?;
