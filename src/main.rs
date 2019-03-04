@@ -14,11 +14,9 @@ fn main() -> Result<(), std::io::Error> {
     let dg_client = dg::create_dgraph_connection("10.139.14.202:9080")?;
     dg::drop_all(&dg_client)?;
 
-    let schema_payload = dg::set_schema(&dg_client);
-    dg::add_genomes_dgraph(&dg_client, &all_kmers, 1000)?;
+    dg::set_schema(&dg_client);
+//    dg::add_genomes_dgraph(&dg_client, &all_kmers, 1000)?;
 
-
-    println!("Schema Payload: {:?}", schema_payload);
     println!("Done");
     Ok(())
 }

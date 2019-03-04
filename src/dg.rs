@@ -97,10 +97,12 @@ pub fn add_genomes_dgraph(
                 // Requires a string of newline separated quads
                 let new_quads = create_batch_quads(&dkmers,&mut kmer_uid, &k);
                 add_batch_dgraph(client, &new_quads.to_owned())?;
-
+                println!(".");
+                break;
             }
-
+            break;
         }
+        break;
     }
 
     Ok(())
