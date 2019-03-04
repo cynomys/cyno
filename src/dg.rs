@@ -84,21 +84,19 @@ pub fn add_genomes_dgraph(
 
                 println!("Adding contig {}", contig.name);
                 let all_kmers = contig.get_kmers_contig();
-                //
-                //                // We now want to collect chunks of the windowed kmers in chunk_size
-                //                // For example, if chunk_size is 1000, this will give us a Vec of 1000
-                //                // kmers as &[u8] that need to be converted into &str
-                //                for kmer_chunks in all_kmers.collect::<Vec<_>>().chunks(chunk_size) {
-                //                    // Run the from_utf8.unwrap() function on every element of the kmer_chunks Vec
-                //                    // Create a Vec(&str) for use in querying and adding to dgraph
-                //                    let mut dkmers = Vec::new();
-                //                    for kmer in kmer_chunks {
-                //                        let dk = from_utf8(kmer);
-                //                        match dk {
-                //                            Ok(dk) => dkmers.push(dk),
-                //                            Err(dk) => return Err(Error::new(ErrorKind::Other, format!("Could not convert utf8 to string {}", dk)))
-                //                        }
-                //                    }
+
+                    // We now want to collect chunks of the windowed kmers in chunk_size
+                    // For example, if chunk_size is 1000, this will give us a Vec of 1000
+                    // kmers as &[u8] that need to be converted into &str
+                    for kmer_chunks in all_kmers.collect::<Vec<_>>().chunks(chunk_size) {
+                        // Run the from_utf8.unwrap() function on every element of the kmer_chunks Vec
+                        // Create a Vec(&str) for use in querying and adding to dgraph
+                        let mut dkmers = Vec::new();
+                        for kmer in kmer_chunks {
+                            let dk = from_utf8(kmer).unwrap();
+                            dkmers.push(dk);
+                        }
+                    }
                 //
                 //                    // Updates the kmer_uid HashMap with returned query values
                 //                    query_batch_dgraph(client, &mut *kmer_uid, &dkmers)?;
