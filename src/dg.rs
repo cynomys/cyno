@@ -98,7 +98,6 @@ pub fn add_genomes_dgraph(
                 let new_quads = create_batch_quads(&dkmers,&mut kmer_uid, &k);
                 add_batch_dgraph(client, &new_quads.to_owned())?;
                 println!(".");
-                break;
             }
             break;
         }
