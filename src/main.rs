@@ -16,7 +16,7 @@ fn main() -> Result<(), std::io::Error> {
     dg::drop_all(&dg_client)?;
 
     dg::set_schema(&dg_client)?;
-    dg::add_genomes_dgraph(&dg_client, parsed_genomes, 2000)?;
+    dg::add_genomes_dgraph(dg_client, parsed_genomes, 2000)?;
 
     println!("Done");
     Ok(())

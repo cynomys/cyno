@@ -60,7 +60,7 @@ pub fn set_schema(client: &Dgraph) -> Result<Payload, Error> {
 
 // Store on a per-genome basis
 pub fn add_genomes_dgraph(
-    client: &Dgraph,
+    client: Dgraph,
     hm: HashMap<String, Vec<genome::ContigKmers>>,
     chunk_size: usize,
 ) -> Result<(), Error> {
@@ -69,6 +69,8 @@ pub fn add_genomes_dgraph(
     // and speed up construction of the quads
 
     let arc_kmer_uid: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+    let arc_client = Arc::new(Mutex::new(client));
+
     let mut handles = vec![];
 
     for (k, v) in hm {
@@ -78,9 +80,10 @@ pub fn add_genomes_dgraph(
             // The method returns a Window iterator of the kmer size
             // The windows are u8, so need to be converted into string
             let counter = Arc::clone(&arc_kmer_uid);
+            let client_clone = arc_client.clone();
             let handle = thread::spawn(move || {
                 // Iterate through all contigs
-                let kmer_uid = counter.lock().unwrap();
+                let mut kmer_uid = counter.lock().unwrap();
 
                 println!("Adding contig {}", contig.name);
                 let all_kmers = contig.get_kmers_contig();
@@ -96,10 +99,13 @@ pub fn add_genomes_dgraph(
                             let dk = from_utf8(kmer).unwrap();
                             dkmers.push(dk);
                         }
+                        // Updates the kmer_uid HashMap with returned query values
+
+                        let client = client_clone.lock().unwrap();
+                        query_batch_dgraph(&*client, &mut *kmer_uid, &dkmers).unwrap();
                     }
                 //
-                //                    // Updates the kmer_uid HashMap with returned query values
-                //                    query_batch_dgraph(client, &mut *kmer_uid, &dkmers)?;
+
                 //
                 //                    // Add new kmers as nodes and edges between them to the graph
                 //                    // Requires a string of newline separated quads
