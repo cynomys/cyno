@@ -86,57 +86,29 @@ pub fn add_genomes_dgraph(
 
             crossbeam::scope(|scope| {
                 let all_kmers = contig.get_kmers_contig().collect::<Vec<_>>();
+
+//              We now want to collect chunks of the windowed kmers in chunk_size
+//              For example, if chunk_size is 1000, this will give us a Vec of 1000
+//              kmers as &[u8] that need to be converted into &str
                 for kmer_chunk in all_kmers.chunks(chunk_size){
                     let mut dkmers = Vec::new();
                     for k in kmer_chunk{
                         let kmer = from_utf8(k).unwrap();
                         dkmers.push(kmer);
                     }
+                    let client = client_clone.lock().unwrap();
+                    let mut kmer_uid = counter.lock().unwrap();
+                    query_batch_dgraph(&*client, &mut *kmer_uid, &dkmers).unwrap();
+
+//                  Add new kmers as nodes and edges between them to the graph
+//                  Requires a string of newline separated quads
+                    let new_quads = create_batch_quads(&dkmers, &mut *kmer_uid, &k);
+                    add_batch_dgraph(&*client, &new_quads.to_owned()).unwrap();
                 }
             })
             .expect("A child panicked");
         }
-
-        //            let handle = thread::spawn(move || {
-        //                for kmer_chunks in all_kmers.collect::<Vec<_>>().chunks(chunk_size) {
-        //
-        //                }
-        //                // Iterate through all contigs
-        //                let mut kmer_uid = counter.lock().unwrap();
-        //
-        //                println!("Adding contig {}", contig.name);
-
-        //
-        //                    // We now want to collect chunks of the windowed kmers in chunk_size
-        //                    // For example, if chunk_size is 1000, this will give us a Vec of 1000
-        //                    // kmers as &[u8] that need to be converted into &str
-        //
-        //                        // Run the from_utf8.unwrap() function on every element of the kmer_chunks Vec
-        //                        // Create a Vec(&str) for use in querying and adding to dgraph
-        //
-        //
-        //                        // Updates the kmer_uid HashMap with returned query values
-        //
-        //                        let client = client_clone.lock().unwrap();
-        //                        query_batch_dgraph(&*client, &mut *kmer_uid, &dkmers).unwrap();
-        //                    }
-        //
-
-        //
-        //                    // Add new kmers as nodes and edges between them to the graph
-        //                    // Requires a string of newline separated quads
-        //                    let new_quads = create_batch_quads(&dkmers, &mut *kmer_uid, &k);
-        //                    add_batch_dgraph(client, &new_quads.to_owned())?;
-        //                    println!(".");
-        //            });
-        //            handles.push(handle);
-        //        }
     }
-
-    // Wait for all the threads to finish
-    //    for h in handles {
-    //        h.join().unwrap();
-    //    }
     Ok(())
 }
 
