@@ -77,24 +77,24 @@ pub fn add_genomes_dgraph(
         let arc_genome_name = Arc::new(Mutex::new(k));
 
         for contig in v {
-            // Iterate through all kmers in the contig
-            // The method returns a Window iterator of the kmer size
-            // The windows are u8, so need to be converted into string
-
             // We need to clone the Arc outside of each closure that we are using
             // The accepted pattern is to re-use the original Arc() name
             let arc_client = arc_client.clone();
             let arc_kmer_uid = arc_kmer_uid.clone();
             let arc_genome_name = arc_genome_name.clone();
 
+            // Iterate through all kmers in the contig
+            // The method returns a Window iterator of the kmer size
+            // The windows are u8, so need to be converted into string
             let all_kmers = contig.get_kmers_contig().collect::<Vec<_>>();
 
             crossbeam::scope(|scope| {
-                //              We now want to collect chunks of the windowed kmers in chunk_size
-                //              For example, if chunk_size is 1000, this will give us a Vec of 1000
-                //              kmers as &[u8] that need to be converted into &str
+                // We now want to collect chunks of the windowed kmers in chunk_size
+                // For example, if chunk_size is 1000, this will give us a Vec of 1000
+                // kmers as &[u8] that need to be converted into &str
                 for kmer_chunk in all_kmers.chunks(chunk_size) {
                     // Re-clone the Arc for the next closure
+                    // This just updates the reference, it does not copy the data
                     let arc_client = arc_client.clone();
                     let arc_kmer_uid = arc_kmer_uid.clone();
                     let arc_genome_name = arc_genome_name.clone();
@@ -105,6 +105,8 @@ pub fn add_genomes_dgraph(
                             let kmer = from_utf8(k).unwrap();
                             dkmers.push(kmer);
                         }
+
+                        // Lock the data structures for this thread
                         let cc = arc_client.lock().unwrap();
                         let mut kmer_uid = arc_kmer_uid.lock().unwrap();
                         let genome_name = arc_genome_name.lock().unwrap();
