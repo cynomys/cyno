@@ -74,6 +74,7 @@ pub fn add_genomes_dgraph(
 
     for (k, v) in hm {
         println!("Adding genome {}", k);
+        let arc_genome_name = Arc::new(Mutex::new(k));
 
         for contig in v {
             // Iterate through all kmers in the contig
@@ -84,6 +85,7 @@ pub fn add_genomes_dgraph(
             // The accepted pattern is to re-use the original Arc() name
             let arc_client = arc_client.clone();
             let arc_kmer_uid = arc_kmer_uid.clone();
+            let arc_genome_name = arc_genome_name.clone();
 
             let all_kmers = contig.get_kmers_contig().collect::<Vec<_>>();
 
@@ -95,6 +97,7 @@ pub fn add_genomes_dgraph(
                     // Re-clone the Arc for the next closure
                     let arc_client = arc_client.clone();
                     let arc_kmer_uid = arc_kmer_uid.clone();
+                    let arc_genome_name = arc_genome_name.clone();
 
                     scope.spawn(move |_| {
                         let mut dkmers = Vec::new();
@@ -104,12 +107,14 @@ pub fn add_genomes_dgraph(
                         }
                         let cc = arc_client.lock().unwrap();
                         let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+                        let genome_name = arc_genome_name.lock().unwrap();
+
                         query_batch_dgraph(&cc, &mut kmer_uid, &dkmers).unwrap();
+                        // Add new kmers as nodes and edges between them to the graph
+                        // Requires a string of newline separated quads
+                        let new_quads = create_batch_quads(&dkmers, &mut kmer_uid, &genome_name);
+                        add_batch_dgraph(&cc, &new_quads.to_owned()).unwrap();
                     });
-                    ////                  Add new kmers as nodes and edges between them to the graph
-                    ////                  Requires a string of newline separated quads
-                    //                    let new_quads = create_batch_quads(&dkmers, &mut *kmer_uid, &k);
-                    //                    add_batch_dgraph(&*client, &new_quads.to_owned()).unwrap();
                 }
             })
             .expect("A child panicked");
