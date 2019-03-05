@@ -77,7 +77,7 @@ pub fn add_genomes_dgraph(
         let arc_genome_name = Arc::new(Mutex::new(k));
 
         for contig in v {
-            println!("Processing contig {}", contig);
+            println!("Processing contig {}", contig.name);
             // We need to clone the Arc outside of each closure that we are using
             // The accepted pattern is to re-use the original Arc() name
             let arc_client = arc_client.clone();
