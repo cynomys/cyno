@@ -71,9 +71,6 @@ pub fn add_genomes_dgraph(
 
     let arc_kmer_uid: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
     let arc_client = Arc::new(Mutex::new(client));
-    let mut hm_kmer_uid: HashMap<String, String> = HashMap::new();
-
-    //    let mut handles = vec![];
 
     for (k, v) in hm {
         println!("Adding genome {}", k);
@@ -83,7 +80,6 @@ pub fn add_genomes_dgraph(
             // The method returns a Window iterator of the kmer size
             // The windows are u8, so need to be converted into string
 
-
             // We need to clone the Arc outside of each closure that we are using
             // The accepted pattern is to re-use the original Arc() name
             let arc_client = arc_client.clone();
@@ -92,35 +88,28 @@ pub fn add_genomes_dgraph(
             let all_kmers = contig.get_kmers_contig().collect::<Vec<_>>();
 
             crossbeam::scope(|scope| {
-//              We now want to collect chunks of the windowed kmers in chunk_size
-//              For example, if chunk_size is 1000, this will give us a Vec of 1000
-//              kmers as &[u8] that need to be converted into &str
-                for kmer_chunk in all_kmers.chunks(chunk_size){
-
+                //              We now want to collect chunks of the windowed kmers in chunk_size
+                //              For example, if chunk_size is 1000, this will give us a Vec of 1000
+                //              kmers as &[u8] that need to be converted into &str
+                for kmer_chunk in all_kmers.chunks(chunk_size) {
                     // Re-clone the Arc for the next closure
                     let arc_client = arc_client.clone();
                     let arc_kmer_uid = arc_kmer_uid.clone();
 
-                    scope.spawn(move |_|{
+                    scope.spawn(move |_| {
                         let mut dkmers = Vec::new();
-                        for k in kmer_chunk{
+                        for k in kmer_chunk {
                             let kmer = from_utf8(k).unwrap();
                             dkmers.push(kmer);
                         }
                         let cc = arc_client.lock().unwrap();
-                        let kmer_uid = arc_kmer_uid.lock().unwrap();
-//                        query_batch_dgraph(cc, &mut hm_kmer_uid, &dkmers).unwrap();
+                        let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+                        query_batch_dgraph(&cc, &mut kmer_uid, &dkmers).unwrap();
                     });
-
-
-//                    let client = client_clone.lock().unwrap();
-//                    let mut kmer_uid = counter.lock().unwrap();
-//                    query_batch_dgraph(&*client, &mut *kmer_uid, &dkmers).unwrap();
-//
-////                  Add new kmers as nodes and edges between them to the graph
-////                  Requires a string of newline separated quads
-//                    let new_quads = create_batch_quads(&dkmers, &mut *kmer_uid, &k);
-//                    add_batch_dgraph(&*client, &new_quads.to_owned()).unwrap();
+                    ////                  Add new kmers as nodes and edges between them to the graph
+                    ////                  Requires a string of newline separated quads
+                    //                    let new_quads = create_batch_quads(&dkmers, &mut *kmer_uid, &k);
+                    //                    add_batch_dgraph(&*client, &new_quads.to_owned()).unwrap();
                 }
             })
             .expect("A child panicked");
