@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
-use std::thread;
+
 
 // Data structures for dgraph
 #[derive(Deserialize, Debug)]
@@ -64,12 +64,14 @@ pub fn add_genomes_dgraph(
     client: Dgraph,
     hm: HashMap<String, Vec<genome::ContigKmers>>,
     chunk_size: usize,
-) -> Result<(), Error> {
+    fq: &mut Vec<Vec<String>>,
+) -> Result<(&mut Vec<Vec<String>>), Error> {
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
 
     let arc_kmer_uid: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+    let arc_final_quads = Arc::new(Mutex::new(fq));
 
     // Client is read-only
     let arc_client = Arc::new(client);
@@ -97,6 +99,7 @@ pub fn add_genomes_dgraph(
                     let arc_client = arc_client.clone();
                     let arc_kmer_uid = arc_kmer_uid.clone();
                     let arc_genome_name = arc_genome_name.clone();
+                    let arc_final_quads = arc_final_quads.clone();
 
                     scope.spawn(move |_| {
                         let mut dkmers = Vec::new();
@@ -104,24 +107,30 @@ pub fn add_genomes_dgraph(
                             let kmer = from_utf8(k).unwrap();
                             dkmers.push(kmer);
                         }
-                        // Progress
-                        println!(".");
-
                         // Lock the data structures for this thread
                         let mut kmer_uid = arc_kmer_uid.lock().unwrap();
 
                         query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
+                        // Progress
+                        println!(".");
+
                         // Add new kmers as nodes and edges between them to the graph
                         // Requires a string of newline separated quads
-                        let new_quads = create_batch_quads(&dkmers, &mut kmer_uid, &*arc_genome_name);
-//                        add_batch_dgraph(&*arc_client, &new_quads.to_owned()).unwrap();
+                        let mut final_quads = arc_final_quads.lock().unwrap();
+                        final_quads.push(create_batch_quads(
+                            &dkmers,
+                            &mut kmer_uid,
+                            &*arc_genome_name,
+                        ));
+                        //                        add_batch_dgraph(&*arc_client, &new_quads.to_owned()).unwrap();
                     });
                 }
             })
             .expect("A child panicked");
         }
     }
-    Ok(())
+    // Unwrap the Arc, then get the value from the Mutex
+    Ok(Arc::try_unwrap(arc_final_quads).unwrap().into_inner().unwrap())
 }
 
 // Create all the quads we need
