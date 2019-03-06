@@ -114,7 +114,7 @@ pub fn add_genomes_dgraph(
                         // Add new kmers as nodes and edges between them to the graph
                         // Requires a string of newline separated quads
                         let new_quads = create_batch_quads(&dkmers, &mut kmer_uid, &*arc_genome_name);
-                        add_batch_dgraph(&*arc_client, &new_quads.to_owned()).unwrap();
+//                        add_batch_dgraph(&*arc_client, &new_quads.to_owned()).unwrap();
                     });
                 }
             })
