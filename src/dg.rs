@@ -70,20 +70,18 @@ pub fn add_genomes_dgraph(
     // and speed up construction of the quads
 
     let arc_kmer_uid: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
-    let arc_client = Arc::new(Mutex::new(client));
+
+    // Client is read-only
+    let arc_client = Arc::new(client);
 
     for (k, v) in hm {
         println!("Adding genome {}", k);
-        let arc_genome_name = Arc::new(Mutex::new(k));
+
+        // Genome name is read-only
+        let arc_genome_name = Arc::new(k);
 
         for contig in v {
             println!("Processing contig {}", contig.name);
-            // We need to clone the Arc outside of each closure that we are using
-            // The accepted pattern is to re-use the original Arc() name
-            let arc_client = arc_client.clone();
-            let arc_kmer_uid = arc_kmer_uid.clone();
-            let arc_genome_name = arc_genome_name.clone();
-
             // Iterate through all kmers in the contig
             // The method returns a Window iterator of the kmer size
             // The windows are u8, so need to be converted into string
@@ -110,15 +108,13 @@ pub fn add_genomes_dgraph(
                         println!(".");
 
                         // Lock the data structures for this thread
-                        let cc = arc_client.lock().unwrap();
                         let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-                        let genome_name = arc_genome_name.lock().unwrap();
 
-                        query_batch_dgraph(&cc, &mut kmer_uid, &dkmers).unwrap();
+                        query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
                         // Add new kmers as nodes and edges between them to the graph
                         // Requires a string of newline separated quads
-                        let new_quads = create_batch_quads(&dkmers, &mut kmer_uid, &genome_name);
-                        add_batch_dgraph(&cc, &new_quads.to_owned()).unwrap();
+                        let new_quads = create_batch_quads(&dkmers, &mut kmer_uid, &*arc_genome_name);
+                        add_batch_dgraph(&*arc_client, &new_quads.to_owned()).unwrap();
                     });
                 }
             })
