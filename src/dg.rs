@@ -74,10 +74,10 @@ pub fn add_genomes_dgraph(
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
     let mut empty_hm: HashMap<String, String> = HashMap::new();
-    let mut empty_quads: Vec<String> = Vec::new();
+    let mut empty_quads: Vec<Vec<String>> = Vec::new();
 
     let arc_kmer_uid = Arc::new(Mutex::new(empty_hm));
-    let arc_final_quads = Arc::new(Mutex::new(&empty_quads));
+    let arc_final_quads = Arc::new(Mutex::new(empty_quads));
 
     // Client is read-only
     let arc_client = Arc::new(client);
@@ -107,6 +107,13 @@ pub fn add_genomes_dgraph(
 
             let mut kmer_uid = arc_kmer_uid.lock().unwrap();
             query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
+
+            let mut final_quads = arc_final_quads.lock().unwrap();
+            final_quads.push(create_batch_quads(
+                &dkmers,
+                &mut kmer_uid,
+                &genome_name,
+            ));
         }
     }
 
