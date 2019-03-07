@@ -17,7 +17,7 @@ fn main() -> Result<(), std::io::Error> {
     dg::set_schema(&dg_client)?;
 
     let mut empty_quads: Vec<Vec<String>> = Vec::new();
-    let final_quads = dg::add_genomes_dgraph(dg_client, parsed_genomes, 100000, &mut empty_quads)?;
+    let final_quads = dg::add_genomes_dgraph(dg_client, parsed_genomes, 6000000, &mut empty_quads)?;
 
     files::write_final_quads(Path::new("./test_out.txt"), final_quads)?;
 
