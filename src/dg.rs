@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
-use std::path::PathBuf;
-use std::slice::Windows;
 use bio::io::fasta;
+
+use std::path::{Path, PathBuf};
 
 
 // Data structures for dgraph
@@ -73,28 +73,24 @@ pub fn add_genomes_dgraph(
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
-    let mut empty_hm: HashMap<String, String> = HashMap::new();
-    let mut empty_quads: Vec<Vec<String>> = Vec::new();
+    let mut kmer_uid: HashMap<String, String> = HashMap::new();
+    let mut quads: Vec<Vec<String>> = Vec::new();
 
-    let arc_kmer_uid = Arc::new(Mutex::new(empty_hm));
-    let arc_final_quads = Arc::new(Mutex::new(empty_quads));
+//    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
+//    let arc_final_quads = Arc::new(Mutex::new(quads));
 
     // Client is read-only
-    let arc_client = Arc::new(client);
+//    let arc_client = Arc::new(client);
 
     // One genome at a time
     for file in files {
-
-
         // Get genome name as Blake2 hash of file
         let genome_name = files::get_blake2_file(file)?;
-
         let reader = fasta::Reader::from_file(&file)?;
 
         // Each record is a contig
         for record in reader.records() {
             let r = record.unwrap();
-
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size);
 
@@ -105,58 +101,15 @@ pub fn add_genomes_dgraph(
                 dkmers.push(kmer);
             }
 
-            let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-            query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
-
-            let mut final_quads = arc_final_quads.lock().unwrap();
-            final_quads.push(create_batch_quads(
+            query_batch_dgraph(&client, &mut kmer_uid, &dkmers).unwrap();
+            quads.push(create_batch_quads(
                 &dkmers,
                 &mut kmer_uid,
                 &genome_name,
             ));
         }
+        files::write_final_quads(Path::new(&genome_name), &quads)?;
     }
-
-
-//
-//        println!("Adding genome {}", k);
-//
-//        // Genome name is read-only
-//        let arc_genome_name = Arc::new(k);
-//
-//            println!("Processing contig {}", contig.name);
-//            // Iterate through all kmers in the contig
-//            // The method returns a Window iterator of the kmer size
-//            // The windows are u8, so need to be converted into string
-////            let contig_as_bytes = self.contig_seq.as_bytes();
-////            contig_as_bytes.windows(self.kmer_length)
-//            let all_kmers = contig
-////            let all_kmers = contig.get_kmers_contig().collect::<Vec<_>>();
-//
-//
-//                        let mut dkmers = Vec::new();
-//                        for k in kmer_chunk {
-//                            let kmer = from_utf8(k).unwrap();
-//                            dkmers.push(kmer);
-//                        }
-//                        // Lock the data structures for this thread
-//                        let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-//
-//                        query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
-//                        // Progress
-//                        println!(".");
-//
-//                        // Add new kmers as nodes and edges between them to the graph
-//                        // Requires a string of newline separated quads
-//                        let mut final_quads = arc_final_quads.lock().unwrap();
-//                        final_quads.push(create_batch_quads(
-//                            &dkmers,
-//                            &mut kmer_uid,
-//                            &*arc_genome_name,
-//                        ));
-//
-//    }
-    // Unwrap the Arc, then get the value from the Mutex
     Ok(())
 }
 
