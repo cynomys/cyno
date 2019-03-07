@@ -5,7 +5,7 @@ mod genome;
 use std::path::Path;
 
 fn main() -> Result<(), std::io::Error> {
-    let fs = files::get_fasta_path(Path::new("./data/Salmonella.fasta"))?;
+    let fs = files::get_fasta_path(Path::new("./data/E_coli.fasta"))?;
     println!("{:?}", fs);
 
     let parsed_genomes = genome::get_parsed_genomes(&fs, 11)?;
