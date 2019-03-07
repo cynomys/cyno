@@ -76,7 +76,7 @@ pub fn add_genomes_dgraph(
     let mut empty_hm: HashMap<String, String> = HashMap::new();
     let mut empty_quads: Vec<String> = Vec::new();
 
-    let arc_kmer_uid: Arc<Mutex<&HashMap<String, String>>> = Arc::new(Mutex::new(&empty_hm));
+    let arc_kmer_uid = Arc::new(Mutex::new(empty_hm));
     let arc_final_quads = Arc::new(Mutex::new(&empty_quads));
 
     // Client is read-only
@@ -84,6 +84,8 @@ pub fn add_genomes_dgraph(
 
     // One genome at a time
     for file in files {
+
+
         // Get genome name as Blake2 hash of file
         let genome_name = files::get_blake2_file(file)?;
 
@@ -93,10 +95,18 @@ pub fn add_genomes_dgraph(
         for record in reader.records() {
             let r = record.unwrap();
 
-//            let rseq = str::from_utf8(r.seq()).unwrap();
-
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size);
+
+            // Add each kmer to the vec
+            let mut dkmers = Vec::new();
+            for k in kmer_window{
+                let kmer = from_utf8(k).unwrap();
+                dkmers.push(kmer);
+            }
+
+            let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+            query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
         }
     }
 
