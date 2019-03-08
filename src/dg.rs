@@ -103,11 +103,8 @@ pub fn add_genomes_dgraph(
                             let kmer = from_utf8(k).unwrap();
                             dkmers.push(kmer);
                         }
-
                         // Lock the data structures
-//                        let client = arc_client
                         let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-//                        let genome_name = arc_genome_name.lock().unwrap();
 
                         query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
                         let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
