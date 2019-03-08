@@ -64,11 +64,12 @@ pub fn add_genomes_dgraph(
     client: Dgraph,
     files: &Vec<PathBuf>,
     kmer_size: usize,
+    chunk_size: usize
 ) -> Result<(), Error> {
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
-    let mut kmer_uid: HashMap<String, String> = HashMap::new();
+    let kmer_uid: HashMap<String, String> = HashMap::new();
 
     let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
     let arc_client = Arc::new(client);
@@ -88,7 +89,7 @@ pub fn add_genomes_dgraph(
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
             crossbeam::scope(|scope| {
-                for kmer_chunk in kmer_window.chunks(1000) {
+                for kmer_chunk in kmer_window.chunks(chunk_size) {
                     // Re-clone the Arc for the next closure
                     // This just updates the reference, it does not copy the data
                     let arc_client = arc_client.clone();
@@ -110,7 +111,7 @@ pub fn add_genomes_dgraph(
 
                         query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
                         let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
-                        add_batch_dgraph(&arc_client, &quads);
+                        add_batch_dgraph(&arc_client, &quads).unwrap();
                     });
                 }
             }).expect("Child panicked"); // end crossbeam scope
