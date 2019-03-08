@@ -1,14 +1,11 @@
-use crate::genome;
 use crate::files;
-
-use crossbeam;
 use dgraph::{make_dgraph, Dgraph, Mutation, Operation, Payload};
 use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::str::from_utf8;
-use std::sync::{Arc, Mutex};
+//use std::sync::{Arc, Mutex};
 use bio::io::fasta;
 
 use std::path::{Path, PathBuf};
@@ -67,7 +64,6 @@ pub fn set_schema(client: &Dgraph) -> Result<Payload, Error> {
 pub fn add_genomes_dgraph(
     client: Dgraph,
     files: &Vec<PathBuf>,
-    chunk_size: usize,
     kmer_size: usize
 ) -> Result<(), Error> {
     // Iterate through all genomes
@@ -183,7 +179,7 @@ fn upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
 }
 
 // Batch add the kmers,
-fn add_batch_dgraph(client: &Dgraph, nq: &Vec<String>) -> Result<(), Error> {
+fn _add_batch_dgraph(client: &Dgraph, nq: &Vec<String>) -> Result<(), Error> {
     let mut txn = client.new_txn();
     let mut mutation = Mutation::new();
     // Manual error propagation for now

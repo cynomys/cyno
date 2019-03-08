@@ -1,6 +1,5 @@
 mod dg;
 mod files;
-mod genome;
 
 use std::path::Path;
 
@@ -16,7 +15,7 @@ fn main() -> Result<(), std::io::Error> {
 
     dg::set_schema(&dg_client)?;
 
-    dg::add_genomes_dgraph(dg_client, &fs, 6000000, 11)?;
+    dg::add_genomes_dgraph(dg_client, &fs, 11)?;
 
     println!("Done");
     Ok(())
