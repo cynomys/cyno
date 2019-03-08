@@ -7,7 +7,7 @@ use std::io::{Error, ErrorKind};
 use std::str::from_utf8;
 //use std::sync::{Arc, Mutex};
 use bio::io::fasta;
-
+use std::slice;
 use std::path::{PathBuf};
 
 
@@ -88,23 +88,24 @@ pub fn add_genomes_dgraph(
         for record in reader.records() {
             let r = record.unwrap();
             // Turn contig into a window of kmers
-            let kmer_window = r.seq().windows(kmer_size);
+            let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            // Add each kmer to the vec
-            let mut dkmers = Vec::new();
-            for k in kmer_window{
-                let kmer = from_utf8(k).unwrap();
-                dkmers.push(kmer);
+            for kmer_chunk in kmer_window.chunks(1000){
+                // Add each kmer to the vec
+                let mut dkmers = Vec::new();
+                for k in kmer_chunk{
+                    let kmer = from_utf8(k).unwrap();
+                    dkmers.push(kmer);
+                }
+                query_batch_dgraph(&client, &mut kmer_uid, &dkmers).unwrap();
+                quads.push(create_batch_quads(
+                    &dkmers,
+                    &mut kmer_uid,
+                    &genome_name,
+                ));
+                add_batch_dgraph(&client, &quads)?;
             }
-
-            query_batch_dgraph(&client, &mut kmer_uid, &dkmers).unwrap();
-            quads.push(create_batch_quads(
-                &dkmers,
-                &mut kmer_uid,
-                &genome_name,
-            ));
         }
-        add_batch_dgraph(&client, &quads)?;
     }
     Ok(())
 }

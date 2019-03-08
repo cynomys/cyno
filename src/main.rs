@@ -4,7 +4,7 @@ mod files;
 use std::path::Path;
 
 fn main() -> Result<(), std::io::Error> {
-    let fs = files::get_fasta_path(Path::new("./data/E_coli.fasta"))?;
+    let fs = files::get_fasta_path(Path::new("./data/small_test.fasta"))?;
     println!("{:?}", fs);
 
     // dgraph init
