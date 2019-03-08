@@ -92,17 +92,3 @@ pub fn get_blake2_file(f: &PathBuf) -> Result<String, Error> {
     // Convert the bytes into a string of lowercase hex with the :x trait
     Ok(format!("{:x}", hash))
 }
-
-
-// Write all the quads for batch insert into dgraph
-pub fn write_final_quads(output_path: &Path, fq: &Vec<Vec<String>>) -> Result<(), Error>{
-    let mut output_file = fs::File::create(&output_path)?;
-
-    for quads in fq{
-        let mut out_string = quads.join("\n");
-        out_string.push('\n');
-        output_file.write(&out_string.as_bytes())?;
-    }
-
-    Ok(())
-}

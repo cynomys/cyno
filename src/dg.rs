@@ -70,7 +70,7 @@ pub fn add_genomes_dgraph(
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
     let mut kmer_uid: HashMap<String, String> = HashMap::new();
-    let mut quads: Vec<Vec<String>> = Vec::new();
+    let mut quads: Vec<String> = Vec::new();
 
 //    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
 //    let arc_final_quads = Arc::new(Mutex::new(quads));
@@ -102,9 +102,10 @@ pub fn add_genomes_dgraph(
                 &dkmers,
                 &mut kmer_uid,
                 &genome_name,
-            ));
+            ).join("\n"));
+            quads.push("\n".to_string());
         }
-        files::write_final_quads(Path::new(&genome_name), &quads)?;
+        add_batch_dgraph(&client, &quads);
     }
     Ok(())
 }
@@ -179,7 +180,7 @@ fn upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
 }
 
 // Batch add the kmers,
-fn _add_batch_dgraph(client: &Dgraph, nq: &Vec<String>) -> Result<(), Error> {
+fn add_batch_dgraph(client: &Dgraph, nq: &Vec<String>) -> Result<(), Error> {
     let mut txn = client.new_txn();
     let mut mutation = Mutation::new();
     // Manual error propagation for now
