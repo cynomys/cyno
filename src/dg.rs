@@ -8,7 +8,7 @@ use std::str::from_utf8;
 //use std::sync::{Arc, Mutex};
 use bio::io::fasta;
 
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 
 // Data structures for dgraph
@@ -105,7 +105,7 @@ pub fn add_genomes_dgraph(
             ).join("\n"));
             quads.push("\n".to_string());
         }
-        add_batch_dgraph(&client, &quads);
+        add_batch_dgraph(&client, &quads)?;
     }
     Ok(())
 }

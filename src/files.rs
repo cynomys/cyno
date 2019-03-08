@@ -3,7 +3,7 @@ use blake2::{Blake2b, Digest};
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-use std::io::Write;
+
 
 /// Returns a vector of all the fasta files in a given path (file or directory)
 ///
