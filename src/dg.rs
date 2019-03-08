@@ -102,8 +102,7 @@ pub fn add_genomes_dgraph(
                 &dkmers,
                 &mut kmer_uid,
                 &genome_name,
-            ).join("\n"));
-            quads.push("\n".to_string());
+            ));
         }
         add_batch_dgraph(&client, &quads)?;
     }
@@ -115,8 +114,9 @@ fn create_batch_quads<'a>(
     kmers: &Vec<&str>,
     hm: &mut HashMap<String, String>,
     genome_name: &str,
-) -> Vec<String> {
-    let mut new_quads = Vec::new();
+) -> String {
+
+    let mut new_quads = String::new();
 
     for i in 0..kmers.len() - 2 {
         let k1_uid = upsert_uid(hm, kmers[i]);
@@ -129,7 +129,7 @@ fn create_batch_quads<'a>(
         k1_node.push_str(" <kmer> \"");
         k1_node.push_str(kmers[i]);
         k1_node.push_str("\" .");
-        new_quads.push(k1_node.to_owned());
+
 
         let mut k2_node = String::with_capacity(
             1 + k2_uid.len() + " <kmer> ".len() + kmers[i + 1].len() + "\"\" .".len(),
@@ -138,7 +138,6 @@ fn create_batch_quads<'a>(
         k2_node.push_str(" <kmer> \"");
         k2_node.push_str(kmers[i + 1]);
         k2_node.push_str("\" .");
-        new_quads.push(k2_node.to_owned());
 
         let mut edge = String::with_capacity(
             1 + k1_uid.len() + genome_name.len() + " <> ".len() + k2_uid.len() + " .".len(),
@@ -149,7 +148,14 @@ fn create_batch_quads<'a>(
         edge.push_str("> ");
         edge.push_str(&k2_uid);
         edge.push_str(" .");
-        new_quads.push(edge.to_owned());
+
+        // Include space for the newlines
+        new_quads.push_str(&k1_node);
+        new_quads.push('\n');
+        new_quads.push_str(&k2_node);
+        new_quads.push('\n');
+        new_quads.push_str(&edge);
+        new_quads.push('\n');
     }
 
     new_quads
@@ -186,7 +192,7 @@ fn add_batch_dgraph(client: &Dgraph, nq: &Vec<String>) -> Result<(), Error> {
     // Manual error propagation for now
     // The data is expected to be in u8 form for submission
     // Create a single String from the Vec<String> and convert to bytes
-    mutation.set_set_nquads(nq.join("\n").as_bytes().to_owned());
+    mutation.set_set_nquads(nq.join("").as_bytes().to_owned());
     //    println!("{:?}", mutation);
 
     let m = txn.mutate(mutation);
