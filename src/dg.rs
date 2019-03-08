@@ -76,12 +76,13 @@ pub fn add_genomes_dgraph(
 
     // One genome at a time
     for file in files {
-        // Get genome name as Blake2 hash of file
-        let genome_name = files::get_blake2_file(file)?;
-        let reader = fasta::Reader::from_file(&file)?;
-
+        // Get genome name as Blake2 hash of file and add a leading 'g' as predicates cannot start
+        // as numbers.
+        let genome_name = format!("g{}", files::get_blake2_file(file)?);
+        add_genome_schema(&arc_client, &genome_name)?;
         let arc_genome_name = Arc::new(genome_name);
 
+        let reader = fasta::Reader::from_file(&file)?;
         // Each record is a contig
         for record in reader.records() {
             let r = record.unwrap();
@@ -265,4 +266,18 @@ fn query_batch_dgraph(
     }
 
     Ok(())
+}
+
+
+fn add_genome_schema(client: &Dgraph, genome: &str) -> Result<(), Error>{
+    let op_schema = Operation {
+        schema: format!("{}: uid .", genome),
+        ..Default::default()
+    };
+
+    let r = client.alter(&op_schema);
+    match r {
+        Ok(..) => Ok(()),
+        Err(e) => Err(Error::new(ErrorKind::Other, format!("Could not add genome {} to dgraph schema. {}", genome, e)))
+    }
 }
