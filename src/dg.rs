@@ -1,15 +1,14 @@
 use crate::files;
+use bio::io::fasta;
+use crossbeam;
 use dgraph::{make_dgraph, Dgraph, Mutation, Operation, Payload};
 use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
 use std::str::from_utf8;
-//use std::sync::{Arc, Mutex};
-use bio::io::fasta;
-use std::slice;
-use std::path::{PathBuf};
-
+use std::sync::{Arc, Mutex};
 
 // Data structures for dgraph
 #[derive(Deserialize, Debug)]
@@ -64,19 +63,15 @@ pub fn set_schema(client: &Dgraph) -> Result<Payload, Error> {
 pub fn add_genomes_dgraph(
     client: Dgraph,
     files: &Vec<PathBuf>,
-    kmer_size: usize
+    kmer_size: usize,
 ) -> Result<(), Error> {
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
     let mut kmer_uid: HashMap<String, String> = HashMap::new();
-    let mut quads: Vec<String> = Vec::new();
 
-//    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
-//    let arc_final_quads = Arc::new(Mutex::new(quads));
-
-    // Client is read-only
-//    let arc_client = Arc::new(client);
+    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
+    let arc_client = Arc::new(client);
 
     // One genome at a time
     for file in files {
@@ -84,27 +79,41 @@ pub fn add_genomes_dgraph(
         let genome_name = files::get_blake2_file(file)?;
         let reader = fasta::Reader::from_file(&file)?;
 
+        let arc_genome_name = Arc::new(genome_name);
+
         // Each record is a contig
         for record in reader.records() {
             let r = record.unwrap();
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            for kmer_chunk in kmer_window.chunks(1000){
-                // Add each kmer to the vec
-                let mut dkmers = Vec::new();
-                for k in kmer_chunk{
-                    let kmer = from_utf8(k).unwrap();
-                    dkmers.push(kmer);
+            crossbeam::scope(|scope| {
+                for kmer_chunk in kmer_window.chunks(1000) {
+                    // Re-clone the Arc for the next closure
+                    // This just updates the reference, it does not copy the data
+                    let arc_client = arc_client.clone();
+                    let arc_kmer_uid = arc_kmer_uid.clone();
+                    let arc_genome_name = arc_genome_name.clone();
+
+                    scope.spawn(move |_| {
+                        // Add each kmer to the vec
+                        let mut dkmers = Vec::new();
+                        for k in kmer_chunk {
+                            let kmer = from_utf8(k).unwrap();
+                            dkmers.push(kmer);
+                        }
+
+                        // Lock the data structures
+//                        let client = arc_client
+                        let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+//                        let genome_name = arc_genome_name.lock().unwrap();
+
+                        query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
+                        let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
+                        add_batch_dgraph(&arc_client, &quads);
+                    });
                 }
-                query_batch_dgraph(&client, &mut kmer_uid, &dkmers).unwrap();
-                quads.push(create_batch_quads(
-                    &dkmers,
-                    &mut kmer_uid,
-                    &genome_name,
-                ));
-                add_batch_dgraph(&client, &quads)?;
-            }
+            }).expect("Child panicked"); // end crossbeam scope
         }
     }
     Ok(())
@@ -116,7 +125,6 @@ fn create_batch_quads<'a>(
     hm: &mut HashMap<String, String>,
     genome_name: &str,
 ) -> String {
-
     let mut new_quads = String::new();
 
     for i in 0..kmers.len() - 2 {
@@ -130,7 +138,6 @@ fn create_batch_quads<'a>(
         k1_node.push_str(" <kmer> \"");
         k1_node.push_str(kmers[i]);
         k1_node.push_str("\" .");
-
 
         let mut k2_node = String::with_capacity(
             1 + k2_uid.len() + " <kmer> ".len() + kmers[i + 1].len() + "\"\" .".len(),
@@ -187,13 +194,13 @@ fn upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
 }
 
 // Batch add the kmers,
-fn add_batch_dgraph(client: &Dgraph, nq: &Vec<String>) -> Result<(), Error> {
+fn add_batch_dgraph(client: &Dgraph, nq: &str) -> Result<(), Error> {
     let mut txn = client.new_txn();
     let mut mutation = Mutation::new();
     // Manual error propagation for now
     // The data is expected to be in u8 form for submission
     // Create a single String from the Vec<String> and convert to bytes
-    mutation.set_set_nquads(nq.join("").as_bytes().to_owned());
+    mutation.set_set_nquads(nq.as_bytes().to_owned());
     //    println!("{:?}", mutation);
 
     let m = txn.mutate(mutation);
