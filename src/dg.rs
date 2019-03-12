@@ -79,8 +79,15 @@ pub fn add_genomes_dgraph(
         // Get genome name as Blake2 hash of file and add a leading 'g' as predicates cannot start
         // as numbers.
         let genome_name = format!("g{}", files::get_blake2_file(file)?);
+        println!("Adding genome {:?}", genome_name);
+
         add_genome_schema(&arc_client, &genome_name)?;
         let arc_genome_name = Arc::new(genome_name);
+
+        // We will generate a single list of quads that need to be added in parallel
+        // and then sequentially add them to dgraph
+        let all_quads = Vec::new();
+        let arc_all_quads = Arc::new(Mutex::new(all_quads));
 
         let reader = fasta::Reader::from_file(&file)?;
         // Each record is a contig
@@ -96,6 +103,7 @@ pub fn add_genomes_dgraph(
                     let arc_client = arc_client.clone();
                     let arc_kmer_uid = arc_kmer_uid.clone();
                     let arc_genome_name = arc_genome_name.clone();
+                    let arc_all_quads = arc_all_quads.clone();
 
                     scope.spawn(move |_| {
                         // Add each kmer to the vec
@@ -109,7 +117,10 @@ pub fn add_genomes_dgraph(
 
                         query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
                         let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
-                        add_batch_dgraph(&arc_client, &quads).unwrap();
+
+                        let mut all_quads = arc_all_quads.lock().unwrap();
+                        all_quads.push(quads);
+
                     });
                 }
             });// end crossbeam scope
@@ -118,8 +129,14 @@ pub fn add_genomes_dgraph(
                 Ok(..) => {},
                 Err(e) => return Err(Error::new(ErrorKind::Other, format!("Crossbeam error: {:?}", e)))
             }
+        } // end contig
+
+        // Add all the quads sequentially
+        let aq = arc_all_quads.into_inner().unwrap();
+        for q in &aq{
+            add_batch_dgraph(&arc_client, q)?;
         }
-    }
+    } // end file
     Ok(())
 }
 
