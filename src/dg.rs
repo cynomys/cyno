@@ -123,16 +123,16 @@ pub fn add_genomes_dgraph(
             });
         } // end contig
 
-        // Add all the quads sequentially
-        //(Arc::try_unwrap(arc_final_quads).unwrap().into_inner().unwrap()
+
         let aq = Arc::try_unwrap(arc_all_quads)
             .unwrap()
             .into_inner()
             .unwrap();
-        for q in aq {
+
+        aq.into_par_iter().for_each(|q|{
             println!(".");
-            add_batch_dgraph(&arc_client, &q)?;
-        }
+            add_batch_dgraph(&arc_client, &q).unwrap();
+        });
     } // end file
     Ok(())
 }
