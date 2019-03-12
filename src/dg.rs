@@ -93,6 +93,8 @@ pub fn add_genomes_dgraph(
         // Each record is a contig
         for record in reader.records() {
             let r = record.unwrap();
+            println!("{:?}", r.id());
+
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
@@ -132,9 +134,11 @@ pub fn add_genomes_dgraph(
         } // end contig
 
         // Add all the quads sequentially
-        let aq = arc_all_quads.into_inner().unwrap();
-        for q in &aq{
-            add_batch_dgraph(&arc_client, q)?;
+        //(Arc::try_unwrap(arc_final_quads).unwrap().into_inner().unwrap()
+        let aq = Arc::try_unwrap(arc_all_quads).unwrap().into_inner().unwrap();
+        for q in aq{
+            println!(".");
+            add_batch_dgraph(&arc_client, &q)?;
         }
     } // end file
     Ok(())
