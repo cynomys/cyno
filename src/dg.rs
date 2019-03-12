@@ -1,7 +1,7 @@
 use crate::files;
 use bio::io::fasta;
-use crossbeam;
 use dgraph::{make_dgraph, Dgraph, Mutation, Operation, Payload};
+use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
@@ -64,7 +64,7 @@ pub fn add_genomes_dgraph(
     client: Dgraph,
     files: &Vec<PathBuf>,
     kmer_size: usize,
-    chunk_size: usize
+    chunk_size: usize,
 ) -> Result<(), Error> {
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
@@ -98,45 +98,38 @@ pub fn add_genomes_dgraph(
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            let cbs = crossbeam::scope(|scope| {
-                for kmer_chunk in kmer_window.chunks(chunk_size) {
-                    // Re-clone the Arc for the next closure
-                    // This just updates the reference, it does not copy the data
-                    let arc_client = arc_client.clone();
-                    let arc_kmer_uid = arc_kmer_uid.clone();
-                    let arc_genome_name = arc_genome_name.clone();
-                    let arc_all_quads = arc_all_quads.clone();
+            kmer_window.par_chunks(chunk_size).into_par_iter().for_each(|kmer_chunk| {
+                // Re-clone the Arc for the next closure
+                // This just updates the reference, it does not copy the data
+                let arc_client = arc_client.clone();
+                let arc_kmer_uid = arc_kmer_uid.clone();
+                let arc_genome_name = arc_genome_name.clone();
+                let arc_all_quads = arc_all_quads.clone();
 
-                    scope.spawn(move |_| {
-                        // Add each kmer to the vec
-                        let mut dkmers = Vec::new();
-                        for k in kmer_chunk {
-                            let kmer = from_utf8(k).unwrap();
-                            dkmers.push(kmer);
-                        }
-                        // Lock the data structures
-                        let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-
-                        query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
-                        let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
-
-                        let mut all_quads = arc_all_quads.lock().unwrap();
-                        all_quads.push(quads);
-
-                    });
+                // Add each kmer to the vec
+                let mut dkmers = Vec::new();
+                for k in kmer_chunk {
+                    let kmer = from_utf8(k).unwrap();
+                    dkmers.push(kmer);
                 }
-            });// end crossbeam scope
+                // Lock the data structures
+                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
 
-            match cbs{
-                Ok(..) => {},
-                Err(e) => return Err(Error::new(ErrorKind::Other, format!("Crossbeam error: {:?}", e)))
-            }
+                query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
+                let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
+
+                let mut all_quads = arc_all_quads.lock().unwrap();
+                all_quads.push(quads);
+            });
         } // end contig
 
         // Add all the quads sequentially
         //(Arc::try_unwrap(arc_final_quads).unwrap().into_inner().unwrap()
-        let aq = Arc::try_unwrap(arc_all_quads).unwrap().into_inner().unwrap();
-        for q in aq{
+        let aq = Arc::try_unwrap(arc_all_quads)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        for q in aq {
             println!(".");
             add_batch_dgraph(&arc_client, &q)?;
         }
@@ -294,8 +287,7 @@ fn query_batch_dgraph(
     Ok(())
 }
 
-
-fn add_genome_schema(client: &Dgraph, genome: &str) -> Result<(), Error>{
+fn add_genome_schema(client: &Dgraph, genome: &str) -> Result<(), Error> {
     let op_schema = Operation {
         schema: format!("{}: uid .", genome),
         ..Default::default()
@@ -304,6 +296,9 @@ fn add_genome_schema(client: &Dgraph, genome: &str) -> Result<(), Error>{
     let r = client.alter(&op_schema);
     match r {
         Ok(..) => Ok(()),
-        Err(e) => Err(Error::new(ErrorKind::Other, format!("Could not add genome {} to dgraph schema. {}", genome, e)))
+        Err(e) => Err(Error::new(
+            ErrorKind::Other,
+            format!("Could not add genome {} to dgraph schema. {}", genome, e),
+        )),
     }
 }
