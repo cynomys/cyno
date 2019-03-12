@@ -89,7 +89,7 @@ pub fn add_genomes_dgraph(
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            crossbeam::scope(|scope| {
+            let cbs = crossbeam::scope(|scope| {
                 for kmer_chunk in kmer_window.chunks(chunk_size) {
                     // Re-clone the Arc for the next closure
                     // This just updates the reference, it does not copy the data
@@ -112,7 +112,12 @@ pub fn add_genomes_dgraph(
                         add_batch_dgraph(&arc_client, &quads).unwrap();
                     });
                 }
-            }).expect("Child panicked"); // end crossbeam scope
+            });// end crossbeam scope
+
+            match cbs{
+                Ok(..) => {},
+                Err(e) => return Err(Error::new(ErrorKind::Other, format!("Crossbeam error: {:?}", e)))
+            }
         }
     }
     Ok(())
