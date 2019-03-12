@@ -2,23 +2,21 @@ mod dg;
 mod files;
 mod cl;
 
-use std::path::Path;
-use std::io::{Error, ErrorKind};
+use structopt::StructOpt;
 
 fn main() -> Result<(), std::io::Error> {
-    let args = cl::get_args()?;
-    let chunk_size =match args.value_of("chunk_size").unwrap().parse::<usize>(){
-        Ok(m) => m,
-        Err(..) => return Err(Error::new(ErrorKind::Other, "Could not convert string to int from CLAP"))
-    };
+    let args = cl::Opt::from_args();
+    println!("{:?}", args.input);
 
-    let fs = files::get_fasta_path(Path::new(args.value_of("input").unwrap()))?;
+    let fs = files::get_fasta_path(&args.input)?;
 
     // dgraph init
-    let dg_client = dg::create_dgraph_connection("10.139.14.193:9080")?;
+    let dg_client = dg::create_dgraph_connection(&args.url)?;
     dg::drop_all(&dg_client)?;
     dg::set_schema(&dg_client)?;
-    dg::add_genomes_dgraph(dg_client, &fs, 11, chunk_size)?;
+
+    // Iterate through all genomes and add to dgraph
+    dg::add_genomes_dgraph(dg_client, &fs, 11, args.chunk)?;
 
     println!("Done");
     Ok(())
