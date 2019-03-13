@@ -9,6 +9,7 @@ use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
+use std::hash::Hash;
 
 // Data structures for dgraph
 #[derive(Deserialize, Debug)]
@@ -80,14 +81,7 @@ pub fn add_genomes_dgraph(
         // as numbers.
         let genome_name = format!("g{}", files::get_blake2_file(file)?);
         println!("Adding genome {:?}", genome_name);
-
         add_genome_schema(&client, &genome_name)?;
-//        let arc_genome_name = Arc::new(genome_name);
-
-        // We will generate a single list of quads that need to be added in parallel
-        // and then sequentially add them to dgraph
-        // let mut all_quads = Vec::new();
-//        let arc_all_quads = Arc::new(Mutex::new(all_quads));
 
         let reader = fasta::Reader::from_file(&file)?;
         // Each record is a contig
@@ -98,36 +92,30 @@ pub fn add_genomes_dgraph(
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            // TODO: Apparently might not need mutex inside rayon
-            let mut all_quads = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
+            let mut all_values = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
                 // Add each kmer to the vec
                 let mut dkmers = Vec::new();
                 for k in kmer_chunk {
                     let kmer = from_utf8(k).unwrap();
                     dkmers.push(kmer);
                 }
-//                // Lock the data structures
-////                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-//
-                query_batch_dgraph(&client, &mut kmer_uid, &dkmers).unwrap();
-                let quads = create_batch_quads(&dkmers, &mut kmer_uid, &genome_name);
-                quads
-//
-////                let mut all_quads = arc_all_quads.lock().unwrap();
-//                all_quads.push(quads);
-            });
+
+                let new_hm = query_batch_dgraph(&client, &dkmers).unwrap();
+                let quads = create_batch_quads(&dkmers, &kmer_uid, &genome_name);
+                (quads, new_hm)
+            }).collect::<Vec<(String, HashMap<String, String>)>>();
+
+//             Update the one-true hashmap and insert the values into the database
+            for (quad, nhm) in all_values{
+                // One-true hash-map update
+                for (k, v) in nhm{
+                    kmer_uid.insert(k, v);
+                }
+
+                // Insert to dgraph
+                add_batch_dgraph(&client, &quad);
+            }
         } // end contig
-
-
-//        let aq = Arc::try_unwrap(all_quads)
-//            .unwrap()
-//            .into_inner()
-//            .unwrap();
-
-//        all_quads.into_par_iter().for_each(|q|{
-//            println!(".");
-//            add_batch_dgraph(&client, &q).unwrap();
-//        });
     } // end file
     Ok(())
 }
@@ -135,14 +123,23 @@ pub fn add_genomes_dgraph(
 // Create all the quads we need
 fn create_batch_quads<'a>(
     kmers: &Vec<&str>,
-    hm: &mut HashMap<String, String>,
+    hm: &HashMap<String, String>,
     genome_name: &str,
 ) -> String {
     let mut new_quads = String::new();
 
     for i in 0..kmers.len() - 2 {
-        let k1_uid = upsert_uid(hm, kmers[i]);
-        let k2_uid = upsert_uid(hm, kmers[i + 1]);
+
+        // Grab the existing uid or create a new one for each kmer
+        let k1_uid = match hm.get(kmers[i]){
+            Some(m) => m.to_owned(),
+            None => create_uid_kmer(kmers[i])
+        };
+
+        let k2_uid = match hm.get(kmers[i+1]){
+            Some(m) => m.to_owned(),
+            None => create_uid_kmer(kmers[i+1])
+        };
 
         let mut k1_node = String::with_capacity(
             1 + k1_uid.len() + " <kmer> ".len() + kmers[i].len() + "\"\" .".len(),
@@ -204,9 +201,7 @@ fn create_uid_kmer(k: &str) -> String {
     let mut uid = String::with_capacity(4 + k.len());
     uid.push_str("_:k");
     uid.push_str(k);
-
-    hm.insert(k.to_owned(), uid.to_owned());
-    uid.to_owned()
+    uid
 }
 
 // Batch add the kmers,
@@ -241,9 +236,8 @@ fn add_batch_dgraph(client: &Dgraph, nq: &str) -> Result<(), Error> {
 // Query our group of strains, updating the one true HashMap
 fn query_batch_dgraph(
     client: &Dgraph,
-    hmc: &mut HashMap<String, String>,
     kmers: &Vec<&str>,
-) -> Result<(), Error> {
+) -> Result<HashMap<String, String>, Error> {
     let query = r#"query find_all($klist: string){
             find_all(func: anyofterms(kmer, $klist))
             {
@@ -270,6 +264,7 @@ fn query_batch_dgraph(
 
     // Update the HashMap for existing values
     // find_all contains a Vec<Node>
+    let mut new_hm = HashMap::new();
     for q in r_json.find_all {
         // uids need to be wrapped in <> for use in NQuad format
         // We will add them here, so that any return from the one true HashMap
@@ -279,10 +274,10 @@ fn query_batch_dgraph(
         uid.push_str(&q.uid);
         uid.push('>');
 
-        hmc.insert(q.kmer, uid.to_owned());
+        new_hm.insert(q.kmer, uid.to_owned());
     }
 
-    Ok(())
+    Ok(new_hm)
 }
 
 fn add_genome_schema(client: &Dgraph, genome: &str) -> Result<(), Error> {
