@@ -94,6 +94,10 @@ pub fn add_genomes_dgraph(
                     dkmers.push(kmer);
                 }
 
+                if dkmers.len() <= 1{
+                    panic!("Less than two kmers in chunk!");
+                }
+
                 let new_hm = query_batch_dgraph(&client, &dkmers).unwrap();
                 let quads = create_batch_quads(&dkmers, &kmer_uid, &genome_name);
                 (quads, new_hm)
