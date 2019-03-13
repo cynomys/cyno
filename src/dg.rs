@@ -8,8 +8,6 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::str::from_utf8;
-use std::sync::{Arc, Mutex};
-use std::hash::Hash;
 
 // Data structures for dgraph
 #[derive(Deserialize, Debug)]
@@ -71,10 +69,6 @@ pub fn add_genomes_dgraph(
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
     let mut kmer_uid: HashMap<String, String> = HashMap::new();
-
-//    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
-//    let arc_client = Arc::new(client);
-
     // One genome at a time
     for file in files {
         // Get genome name as Blake2 hash of file and add a leading 'g' as predicates cannot start
@@ -92,7 +86,7 @@ pub fn add_genomes_dgraph(
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            let mut all_values = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
+            let all_values = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
                 // Add each kmer to the vec
                 let mut dkmers = Vec::new();
                 for k in kmer_chunk {
@@ -105,16 +99,20 @@ pub fn add_genomes_dgraph(
                 (quads, new_hm)
             }).collect::<Vec<(String, HashMap<String, String>)>>();
 
-//             Update the one-true hashmap and insert the values into the database
+//             Update the one-true hashmap and collect quads for parallel insertion into the database
+            let mut all_quads = Vec::new();
             for (quad, nhm) in all_values{
-                // One-true hash-map update
+                all_quads.push(quad);
                 for (k, v) in nhm{
                     kmer_uid.insert(k, v);
                 }
-
-                // Insert to dgraph
-                add_batch_dgraph(&client, &quad);
             }
+
+            // parallel insertion
+            all_quads.into_par_iter().for_each(|quad|{
+                add_batch_dgraph(&client, &quad).unwrap();
+            });
+
         } // end contig
     } // end file
     Ok(())
@@ -180,7 +178,7 @@ fn create_batch_quads<'a>(
 }
 
 // Use the HashMap as the db for an "upsert" of the uid
-fn upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
+fn _upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
     // Check to see if kmer is already in the graph
     // If it is, grab the uid, if not, use a blank node
     match hm.get(k) {
