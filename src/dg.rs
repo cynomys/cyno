@@ -69,10 +69,10 @@ pub fn add_genomes_dgraph(
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
-    let kmer_uid: HashMap<String, String> = HashMap::new();
+    let mut kmer_uid: HashMap<String, String> = HashMap::new();
 
-    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
-    let arc_client = Arc::new(client);
+//    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
+//    let arc_client = Arc::new(client);
 
     // One genome at a time
     for file in files {
@@ -81,13 +81,13 @@ pub fn add_genomes_dgraph(
         let genome_name = format!("g{}", files::get_blake2_file(file)?);
         println!("Adding genome {:?}", genome_name);
 
-        add_genome_schema(&arc_client, &genome_name)?;
-        let arc_genome_name = Arc::new(genome_name);
+        add_genome_schema(&client, &genome_name)?;
+//        let arc_genome_name = Arc::new(genome_name);
 
         // We will generate a single list of quads that need to be added in parallel
         // and then sequentially add them to dgraph
-        let all_quads = Vec::new();
-        let arc_all_quads = Arc::new(Mutex::new(all_quads));
+        // let mut all_quads = Vec::new();
+//        let arc_all_quads = Arc::new(Mutex::new(all_quads));
 
         let reader = fasta::Reader::from_file(&file)?;
         // Each record is a contig
@@ -98,41 +98,36 @@ pub fn add_genomes_dgraph(
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            kmer_window.par_chunks(chunk_size).into_par_iter().for_each(|kmer_chunk| {
-                // Re-clone the Arc for the next closure
-                // This just updates the reference, it does not copy the data
-                let arc_client = arc_client.clone();
-                let arc_kmer_uid = arc_kmer_uid.clone();
-                let arc_genome_name = arc_genome_name.clone();
-                let arc_all_quads = arc_all_quads.clone();
-
+            // TODO: Apparently might not need mutex inside rayon
+            let mut all_quads = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
                 // Add each kmer to the vec
                 let mut dkmers = Vec::new();
                 for k in kmer_chunk {
                     let kmer = from_utf8(k).unwrap();
                     dkmers.push(kmer);
                 }
-                // Lock the data structures
-                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-
-                query_batch_dgraph(&arc_client, &mut kmer_uid, &dkmers).unwrap();
-                let quads = create_batch_quads(&dkmers, &mut kmer_uid, &arc_genome_name);
-
-                let mut all_quads = arc_all_quads.lock().unwrap();
-                all_quads.push(quads);
+//                // Lock the data structures
+////                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+//
+                query_batch_dgraph(&client, &mut kmer_uid, &dkmers).unwrap();
+                let quads = create_batch_quads(&dkmers, &mut kmer_uid, &genome_name);
+                quads
+//
+////                let mut all_quads = arc_all_quads.lock().unwrap();
+//                all_quads.push(quads);
             });
         } // end contig
 
 
-        let aq = Arc::try_unwrap(arc_all_quads)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+//        let aq = Arc::try_unwrap(all_quads)
+//            .unwrap()
+//            .into_inner()
+//            .unwrap();
 
-        aq.into_par_iter().for_each(|q|{
-            println!(".");
-            add_batch_dgraph(&arc_client, &q).unwrap();
-        });
+//        all_quads.into_par_iter().for_each(|q|{
+//            println!(".");
+//            add_batch_dgraph(&client, &q).unwrap();
+//        });
     } // end file
     Ok(())
 }
@@ -194,21 +189,26 @@ fn upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
     match hm.get(k) {
         Some(v) => v.to_owned(),
         None => {
-            // If we pre-allocate the string-size, building it is much more efficient
-            // Use the k prefix to denote the blank node
-            // In cases where the same kmer exists more than once in the batch, we don't
-            // wan't to assign a new node to it, we want to re-use the blank node.
-            // Therefore we will insert the blank node into the HashMap.
-            // In any future queries of the graph, the actual uid will be returned
-            // and wipe out the blank node.
-            let mut uid = String::with_capacity(4 + k.len());
-            uid.push_str("_:k");
-            uid.push_str(k);
 
-            hm.insert(k.to_owned(), uid.to_owned());
-            uid.to_owned()
         }
     }
+}
+
+
+fn create_uid_kmer(k: &str) -> String {
+    // If we pre-allocate the string-size, building it is much more efficient
+    // Use the k prefix to denote the blank node
+    // In cases where the same kmer exists more than once in the batch, we don't
+    // wan't to assign a new node to it, we want to re-use the blank node.
+    // Therefore we will insert the blank node into the HashMap.
+    // In any future queries of the graph, the actual uid will be returned
+    // and wipe out the blank node.
+    let mut uid = String::with_capacity(4 + k.len());
+    uid.push_str("_:k");
+    uid.push_str(k);
+
+    hm.insert(k.to_owned(), uid.to_owned());
+    uid.to_owned()
 }
 
 // Batch add the kmers,
