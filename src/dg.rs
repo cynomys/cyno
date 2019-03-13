@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::str::from_utf8;
+use std::sync::{Arc, Mutex};
 
 // Data structures for dgraph
 #[derive(Deserialize, Debug)]
@@ -68,7 +69,8 @@ pub fn add_genomes_dgraph(
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
     // and speed up construction of the quads
-    let mut kmer_uid: HashMap<String, String> = HashMap::new();
+    let kmer_uid: HashMap<String, String> = HashMap::new();
+    let arc_kmer_uid = Arc::new(Mutex::new(kmer_uid));
     // One genome at a time
     for file in files {
         // Get genome name as Blake2 hash of file and add a leading 'g' as predicates cannot start
@@ -86,8 +88,10 @@ pub fn add_genomes_dgraph(
             // Turn contig into a window of kmers
             let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
 
-            let all_values = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
+            let arc_kmer_uid = arc_kmer_uid.clone();
+            let all_quads = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
                 // Add each kmer to the vec
+
                 let mut dkmers = Vec::new();
                 for k in kmer_chunk {
                     let kmer = from_utf8(k).unwrap();
@@ -98,19 +102,15 @@ pub fn add_genomes_dgraph(
                     panic!("Less than two kmers in chunk!");
                 }
 
+                // Update the one-true HashMap
                 let new_hm = query_batch_dgraph(&client, &dkmers).unwrap();
-                let quads = create_batch_quads(&dkmers, &kmer_uid, &genome_name);
-                (quads, new_hm)
-            }).collect::<Vec<(String, HashMap<String, String>)>>();
-
-//             Update the one-true hashmap and collect quads for parallel insertion into the database
-            let mut all_quads = Vec::new();
-            for (quad, nhm) in all_values{
-                all_quads.push(quad);
-                for (k, v) in nhm{
+                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+                for (k, v) in new_hm{
                     kmer_uid.insert(k, v);
                 }
-            }
+                let quads = create_batch_quads(&dkmers, &kmer_uid, &genome_name);
+                quads
+            }).collect::<Vec<(String)>>();
 
             // parallel insertion
             all_quads.into_par_iter().for_each(|quad|{
