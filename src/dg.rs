@@ -188,9 +188,7 @@ fn upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
     // If it is, grab the uid, if not, use a blank node
     match hm.get(k) {
         Some(v) => v.to_owned(),
-        None => {
-
-        }
+        None => {create_uid_kmer(k)}
     }
 }
 
