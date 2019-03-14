@@ -86,7 +86,7 @@ pub fn add_genomes_dgraph(
 
 
         // Each record is a contig
-        for record in reader.records() {
+        reader.records().into_iter().for_each(|record|{
             let r = record.as_ref().unwrap();
             println!("{:?}", r.id());
 
@@ -111,7 +111,7 @@ pub fn add_genomes_dgraph(
             //            all_quads.into_par_iter().for_each(|quad| {
             //                add_batch_dgraph(&client, &quad).unwrap();
             //            });
-        } // end contig
+        }); // end contig
     } // end file
     Ok(())
 }
