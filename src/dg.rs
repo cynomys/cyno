@@ -23,6 +23,13 @@ struct FindAll {
     find_all: Vec<Node>,
 }
 
+#[derive(Debug)]
+struct KmerLink {
+    k1: String,
+    k2: String,
+    edge: String
+}
+
 // New DB
 pub fn create_dgraph_connection(addr: &str) -> Result<dgraph::Dgraph, Error> {
     let cx = make_dgraph!(dgraph::new_dgraph_client(addr));
@@ -111,11 +118,17 @@ pub fn add_genomes_dgraph(
 
             let quads = create_batch_quads(&kmers, &kmer_uid, &genome_name);
             quads
-            // parallel insertion
-            //            all_quads.into_par_iter().for_each(|quad| {
-            //                add_batch_dgraph(&client, &quad).unwrap();
-            //            });
-        }).collect::<Vec<String>>(); // end contig
+
+        }).collect::<Vec<KmerLink>>(); // end contig
+
+        // parallel insertion
+        // dgraph live load uses batches of 1000, so we can mimic that here
+//        all_quads.into_par_iter().for_each(|quad| {
+//            add_batch_dgraph(&client, &quad).unwrap();
+//            println!(".");
+//        });
+
+
     } // end file
     Ok(())
 }
@@ -125,7 +138,7 @@ fn create_batch_quads<'a>(
     kmers: &Vec<&str>,
     hm: &HashMap<String, String>,
     genome_name: &str,
-) -> Vec<String> {
+) -> Vec<KmerLink> {
     let mut new_quads = Vec::new();
 
     for i in 0..kmers.len() - 2 {
@@ -167,9 +180,13 @@ fn create_batch_quads<'a>(
         edge.push_str(" .");
 
         // Include space for the newlines
-        new_quads.push(k1_node);
-        new_quads.push(k2_node);
-        new_quads.push(edge);
+        let new_link = KmerLink {
+            k1: k1_node,
+            k2: k2_node,
+            edge: edge
+        };
+
+        new_quads.push(new_link);
     }
     new_quads
 }
