@@ -123,10 +123,10 @@ pub fn add_genomes_dgraph(
 
         // parallel insertion
         // dgraph live load uses batches of 1000, so we can mimic that here
-//        all_quads.into_par_iter().for_each(|quad| {
-//            add_batch_dgraph(&client, &quad).unwrap();
-//            println!(".");
-//        });
+        all_quads.into_par_iter().chunks(300).for_each(|kmer_chunk| {
+            add_batch_dgraph(&client, &kmer_chunk).unwrap();
+            println!(".");
+        });
 
 
     } // end file
@@ -201,6 +201,21 @@ fn _upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
     }
 }
 
+
+// Destructure into a string for addition to dgraph
+fn get_string_kmerlink(kx: &KmerLink)-> String{
+    let mut triple_string = String::with_capacity(4 + kx.k1.len() + kx.k2.len() + kx.edge.len());
+    triple_string.push_str(&kx.k1);
+    triple_string.push('\n');
+    triple_string.push_str(&kx.k2);
+    triple_string.push('\n');
+    triple_string.push_str(&kx.edge);
+    triple_string.push('\n');
+
+    triple_string
+}
+
+
 fn create_uid_kmer(k: &str) -> String {
     // If we pre-allocate the string-size, building it is much more efficient
     // Use the k prefix to denote the blank node
@@ -216,13 +231,18 @@ fn create_uid_kmer(k: &str) -> String {
 }
 
 // Batch add the kmers,
-fn add_batch_dgraph(client: &Dgraph, nq: &str) -> Result<(), Error> {
+fn add_batch_dgraph(client: &Dgraph, kmer_links: &Vec<KmerLink>) -> Result<(), Error> {
     let mut txn = client.new_txn();
     let mut mutation = Mutation::new();
     // Manual error propagation for now
     // The data is expected to be in u8 form for submission
     // Create a single String from the Vec<String> and convert to bytes
-    mutation.set_set_nquads(nq.as_bytes().to_owned());
+    let mut sx = String::new();
+    for kl in kmer_links{
+        sx.push_str(&get_string_kmerlink(kl));
+    }
+
+    mutation.set_set_nquads(sx.as_bytes().to_owned());
     //    println!("{:?}", mutation);
 
     let m = txn.mutate(mutation);
