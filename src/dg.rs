@@ -83,10 +83,10 @@ pub fn add_genomes_dgraph(
 
         let reader = fasta::Reader::from_file(&file)?;
 
-
+        let rx = reader.records().collect::<Vec<_>>();
 
         // Each record is a contig
-        reader.records().into_iter().for_each(|record|{
+        rx.par_iter().for_each(|record|{
             let r = record.as_ref().unwrap();
             println!("{:?}", r.id());
 
@@ -107,6 +107,7 @@ pub fn add_genomes_dgraph(
             }
 
             let quads = create_batch_quads(&kmers, &kmer_uid, &genome_name);
+//            quads
             // parallel insertion
             //            all_quads.into_par_iter().for_each(|quad| {
             //                add_batch_dgraph(&client, &quad).unwrap();
