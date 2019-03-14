@@ -125,7 +125,7 @@ pub fn add_genomes_dgraph(
         // each KmerLink has 3 quads, so ~333 to mimic dgraph live
         all_kmer_links
             .into_par_iter()
-            .chunks(333)
+            .chunks(33333)
             .for_each(|kmer_chunk| {
                 add_batch_dgraph(&client, &kmer_chunk).unwrap();
                 println!(".");
