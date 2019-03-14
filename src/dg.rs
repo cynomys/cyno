@@ -86,7 +86,7 @@ pub fn add_genomes_dgraph(
         let rx = reader.records().collect::<Vec<_>>();
 
         // Each record is a contig
-        let all_quads = rx.par_iter().map(|record|{
+        let all_quads = rx.par_iter().flat_map(|record|{
 
             // We need the .as_ref() otherwise the compiler thinks we are borrowing record
             // and we will not be able to continue
@@ -115,7 +115,7 @@ pub fn add_genomes_dgraph(
             //            all_quads.into_par_iter().for_each(|quad| {
             //                add_batch_dgraph(&client, &quad).unwrap();
             //            });
-        }).collect::<Vec<Vec<String>>>(); // end contig
+        }).collect::<Vec<String>>(); // end contig
     } // end file
     Ok(())
 }
