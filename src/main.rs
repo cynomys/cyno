@@ -1,6 +1,6 @@
+mod cl;
 mod dg;
 mod files;
-mod cl;
 
 use structopt::StructOpt;
 
@@ -16,7 +16,7 @@ fn main() -> Result<(), std::io::Error> {
     dg::set_schema(&dg_client)?;
 
     // Iterate through all genomes and add to dgraph
-    dg::add_genomes_dgraph(dg_client, &fs, 11, args.chunk)?;
+    dg::add_genomes_dgraph(dg_client, &fs, 11)?;
 
     println!("Done");
     Ok(())

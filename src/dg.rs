@@ -6,7 +6,6 @@ use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
-use std::iter::Map;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
@@ -27,7 +26,7 @@ struct FindAll {
 struct KmerLink {
     k1: String,
     k2: String,
-    edge: String
+    edge: String,
 }
 
 // New DB
@@ -72,7 +71,6 @@ pub fn add_genomes_dgraph(
     client: Dgraph,
     files: &Vec<PathBuf>,
     kmer_size: usize,
-    chunk_size: usize,
 ) -> Result<(), Error> {
     // Iterate through all genomes
     // We keep a HashMap of all known kmer: uid to avoid duplications
@@ -87,54 +85,57 @@ pub fn add_genomes_dgraph(
         println!("Adding genome {:?}", genome_name);
         add_genome_schema(&client, &genome_name)?;
 
-
         let reader = fasta::Reader::from_file(&file)?;
 
+        // Each record is a contig, but we need to collect them into a Vec so that
+        // we can parallel process them using rayon
         let rx = reader.records().collect::<Vec<_>>();
+        let all_kmer_links = rx
+            .par_iter()
+            .flat_map(|record| {
+                // We need the .as_ref() otherwise the compiler thinks we are borrowing record
+                // and we will not be able to continue
+                let r = record.as_ref().unwrap();
+                println!("{:?}", r.id());
 
-        // Each record is a contig
-        let all_quads = rx.par_iter().flat_map(|record|{
+                // Turn contig into a window of kmers
+                let kmers = r
+                    .seq()
+                    .windows(kmer_size)
+                    .map(|x| from_utf8(x).unwrap())
+                    .collect::<Vec<&str>>();
 
-            // We need the .as_ref() otherwise the compiler thinks we are borrowing record
-            // and we will not be able to continue
-            let r = record.as_ref().unwrap();
-            println!("{:?}", r.id());
+                let arc_kmer_uid = arc_kmer_uid.clone();
 
-            // Turn contig into a window of kmers
-            let kmers = r
-                .seq()
-                .windows(kmer_size)
-                .map(|x| from_utf8(x).unwrap())
-                .collect::<Vec<&str>>();
+                // Update the one-true HashMap
+                let new_hm = query_batch_dgraph(&client, &kmers).unwrap();
+                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+                for (k, v) in new_hm {
+                    kmer_uid.insert(k, v);
+                }
 
-            let arc_kmer_uid = arc_kmer_uid.clone();
-
-            // Update the one-true HashMap
-            let new_hm = query_batch_dgraph(&client, &kmers).unwrap();
-            let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-            for (k, v) in new_hm {
-                kmer_uid.insert(k, v);
-            }
-
-            let quads = create_batch_quads(&kmers, &kmer_uid, &genome_name);
-            quads
-
-        }).collect::<Vec<KmerLink>>(); // end contig
+                // Return the created KmerLinks for future processing
+                let klinks = create_kmer_links(&kmers, &kmer_uid, &genome_name);
+                klinks
+            })
+            .collect::<Vec<KmerLink>>(); // end contig
 
         // parallel insertion
         // dgraph live load uses batches of 1000, so we can mimic that here
-        all_quads.into_par_iter().chunks(300).for_each(|kmer_chunk| {
-            add_batch_dgraph(&client, &kmer_chunk).unwrap();
-            println!(".");
-        });
-
-
+        // each KmerLink has 3 quads, so ~333 to mimic dgraph live
+        all_kmer_links
+            .into_par_iter()
+            .chunks(333)
+            .for_each(|kmer_chunk| {
+                add_batch_dgraph(&client, &kmer_chunk).unwrap();
+                println!(".");
+            });
     } // end file
     Ok(())
 }
 
 // Create all the quads we need
-fn create_batch_quads<'a>(
+fn create_kmer_links<'a>(
     kmers: &Vec<&str>,
     hm: &HashMap<String, String>,
     genome_name: &str,
@@ -183,7 +184,7 @@ fn create_batch_quads<'a>(
         let new_link = KmerLink {
             k1: k1_node,
             k2: k2_node,
-            edge: edge
+            edge: edge,
         };
 
         new_quads.push(new_link);
@@ -201,9 +202,8 @@ fn _upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
     }
 }
 
-
 // Destructure into a string for addition to dgraph
-fn get_string_kmerlink(kx: &KmerLink)-> String{
+fn get_string_kmerlink(kx: &KmerLink) -> String {
     let mut triple_string = String::with_capacity(4 + kx.k1.len() + kx.k2.len() + kx.edge.len());
     triple_string.push_str(&kx.k1);
     triple_string.push('\n');
@@ -214,7 +214,6 @@ fn get_string_kmerlink(kx: &KmerLink)-> String{
 
     triple_string
 }
-
 
 fn create_uid_kmer(k: &str) -> String {
     // If we pre-allocate the string-size, building it is much more efficient
@@ -238,7 +237,7 @@ fn add_batch_dgraph(client: &Dgraph, kmer_links: &Vec<KmerLink>) -> Result<(), E
     // The data is expected to be in u8 form for submission
     // Create a single String from the Vec<String> and convert to bytes
     let mut sx = String::new();
-    for kl in kmer_links{
+    for kl in kmer_links {
         sx.push_str(&get_string_kmerlink(kl));
     }
 
