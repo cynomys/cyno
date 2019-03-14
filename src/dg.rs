@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
+use std::iter::Map;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
@@ -79,44 +80,37 @@ pub fn add_genomes_dgraph(
         println!("Adding genome {:?}", genome_name);
         add_genome_schema(&client, &genome_name)?;
 
+
         let reader = fasta::Reader::from_file(&file)?;
+
+
+
         // Each record is a contig
         for record in reader.records() {
-            let r = record.unwrap();
+            let r = record.as_ref().unwrap();
             println!("{:?}", r.id());
 
             // Turn contig into a window of kmers
-            let kmer_window = r.seq().windows(kmer_size).collect::<Vec<_>>();
+            let kmers = r
+                .seq()
+                .windows(kmer_size)
+                .map(|x| from_utf8(x).unwrap())
+                .collect::<Vec<&str>>();
 
             let arc_kmer_uid = arc_kmer_uid.clone();
-            let all_quads = kmer_window.par_chunks(chunk_size).into_par_iter().map( |kmer_chunk| {
-                // Add each kmer to the vec
 
-                let mut dkmers = Vec::new();
-                for k in kmer_chunk {
-                    let kmer = from_utf8(k).unwrap();
-                    dkmers.push(kmer);
-                }
+            // Update the one-true HashMap
+            let new_hm = query_batch_dgraph(&client, &kmers).unwrap();
+            let mut kmer_uid = arc_kmer_uid.lock().unwrap();
+            for (k, v) in new_hm {
+                kmer_uid.insert(k, v);
+            }
 
-                if dkmers.len() <= 1{
-                    panic!("Less than two kmers in chunk!");
-                }
-
-                // Update the one-true HashMap
-                let new_hm = query_batch_dgraph(&client, &dkmers).unwrap();
-                let mut kmer_uid = arc_kmer_uid.lock().unwrap();
-                for (k, v) in new_hm{
-                    kmer_uid.insert(k, v);
-                }
-                let quads = create_batch_quads(&dkmers, &kmer_uid, &genome_name);
-                quads
-            }).collect::<Vec<(String)>>();
-
+            let quads = create_batch_quads(&kmers, &kmer_uid, &genome_name);
             // parallel insertion
-            all_quads.into_par_iter().for_each(|quad|{
-                add_batch_dgraph(&client, &quad).unwrap();
-            });
-
+            //            all_quads.into_par_iter().for_each(|quad| {
+            //                add_batch_dgraph(&client, &quad).unwrap();
+            //            });
         } // end contig
     } // end file
     Ok(())
@@ -127,20 +121,19 @@ fn create_batch_quads<'a>(
     kmers: &Vec<&str>,
     hm: &HashMap<String, String>,
     genome_name: &str,
-) -> String {
-    let mut new_quads = String::new();
+) -> Vec<String> {
+    let mut new_quads = Vec::new();
 
     for i in 0..kmers.len() - 2 {
-
         // Grab the existing uid or create a new one for each kmer
-        let k1_uid = match hm.get(kmers[i]){
+        let k1_uid = match hm.get(kmers[i]) {
             Some(m) => m.to_owned(),
-            None => create_uid_kmer(kmers[i])
+            None => create_uid_kmer(kmers[i]),
         };
 
-        let k2_uid = match hm.get(kmers[i+1]){
+        let k2_uid = match hm.get(kmers[i + 1]) {
             Some(m) => m.to_owned(),
-            None => create_uid_kmer(kmers[i+1])
+            None => create_uid_kmer(kmers[i + 1]),
         };
 
         let mut k1_node = String::with_capacity(
@@ -170,14 +163,10 @@ fn create_batch_quads<'a>(
         edge.push_str(" .");
 
         // Include space for the newlines
-        new_quads.push_str(&k1_node);
-        new_quads.push('\n');
-        new_quads.push_str(&k2_node);
-        new_quads.push('\n');
-        new_quads.push_str(&edge);
-        new_quads.push('\n');
+        new_quads.push(k1_node);
+        new_quads.push(k2_node);
+        new_quads.push(edge);
     }
-
     new_quads
 }
 
@@ -187,10 +176,9 @@ fn _upsert_uid(hm: &mut HashMap<String, String>, k: &str) -> String {
     // If it is, grab the uid, if not, use a blank node
     match hm.get(k) {
         Some(v) => v.to_owned(),
-        None => {create_uid_kmer(k)}
+        None => create_uid_kmer(k),
     }
 }
-
 
 fn create_uid_kmer(k: &str) -> String {
     // If we pre-allocate the string-size, building it is much more efficient
