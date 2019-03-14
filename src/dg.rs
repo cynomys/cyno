@@ -86,7 +86,10 @@ pub fn add_genomes_dgraph(
         let rx = reader.records().collect::<Vec<_>>();
 
         // Each record is a contig
-        rx.par_iter().for_each(|record|{
+        let all_quads = rx.par_iter().map(|record|{
+
+            // We need the .as_ref() otherwise the compiler thinks we are borrowing record
+            // and we will not be able to continue
             let r = record.as_ref().unwrap();
             println!("{:?}", r.id());
 
@@ -107,12 +110,12 @@ pub fn add_genomes_dgraph(
             }
 
             let quads = create_batch_quads(&kmers, &kmer_uid, &genome_name);
-//            quads
+            quads
             // parallel insertion
             //            all_quads.into_par_iter().for_each(|quad| {
             //                add_batch_dgraph(&client, &quad).unwrap();
             //            });
-        }); // end contig
+        }).collect::<Vec<Vec<String>>>(); // end contig
     } // end file
     Ok(())
 }
